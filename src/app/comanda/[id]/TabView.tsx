@@ -1,9 +1,9 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { brl, fmtTime } from "@/lib/format";
+import { brl, fmtTime, isValidCpf, maskCpf } from "@/lib/format";
 
 type Line = { id: string; name: string; qty: number; unit_price_cents: number; status: string; created_at: string };
-type TabData = { tab: { id: string; table_label: string; status: string }; lines: Line[]; subtotal: number; service: number; total: number };
+type TabData = { tab: { id: string; table_label: string; status: string }; lines: Line[]; subtotal: number; service: number; total: number; requireCpf?: boolean };
 
 const STATUS: Record<string, { t: string; c: string }> = {
   queued: { t: "Na fila", c: "bg-linha text-nevoa" }, preparing: { t: "Preparando", c: "bg-[#fff1dc] text-[#9a5b00]" },
@@ -16,6 +16,11 @@ export default function TabView({ id }: { id: string }) {
   const [people, setPeople] = useState(1);
   const [paying, setPaying] = useState(false);
   const [pix, setPix] = useState<{ qrCode?: string; qrCodeBase64?: string } | null>(null);
+  const [cpf, setCpf] = useState("");
+  const [askCpf, setAskCpf] = useState(false);
+  const [payErr, setPayErr] = useState("");
+  const [copied, setCopied] = useState(false);
+  useEffect(() => { try { setCpf(JSON.parse(localStorage.getItem("vf_profile") ?? "{}").cpf ?? ""); } catch {} }, []);
 
   const load = useCallback(async () => {
     const r = await fetch(`/api/tabs/${id}`, { cache: "no-store" });
@@ -25,10 +30,14 @@ export default function TabView({ id }: { id: string }) {
   useEffect(() => { load(); const t = setInterval(load, 3000); return () => clearInterval(t); }, [load]);
 
   async function pay() {
-    setPaying(true);
-    const j = await fetch(`/api/tabs/${id}/pay`, { method: "POST" }).then((r) => r.json());
+    setPaying(true); setPayErr("");
+    const r = await fetch(`/api/tabs/${id}/pay`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(askCpf ? { cpf } : {}) });
+    const j = await r.json();
     setPaying(false);
-    if (j.pix?.status === "approved" || j.status === "approved") { localStorage.removeItem("vf_tab"); load(); } else setPix(j.pix);
+    if (r.status === 422) { setAskCpf(true); return; }
+    if (!r.ok) return setPayErr(j.error ?? "Não foi possível gerar o Pix.");
+    if (askCpf) { const p = JSON.parse(localStorage.getItem("vf_profile") ?? "{}"); localStorage.setItem("vf_profile", JSON.stringify({ ...p, cpf })); }
+    if (j.pix?.status === "approved") { localStorage.removeItem("vf_tab"); load(); } else setPix(j.pix);
   }
 
   if (err) return <p className="text-nevoa">{err}</p>;
@@ -62,7 +71,8 @@ export default function TabView({ id }: { id: string }) {
       ) : pix ? (
         <div className="sheet mt-6 p-6 text-center">
           {pix.qrCodeBase64 && <img alt="QR code do Pix" className="mx-auto w-52" src={`data:image/png;base64,${pix.qrCodeBase64}`} />}
-          {pix.qrCode && <button className="btn-line mt-3 w-full" onClick={() => navigator.clipboard.writeText(pix.qrCode!)}>Copiar código Pix</button>}
+          {pix.qrCode && <button className="btn-line mt-3 w-full" onClick={() => { navigator.clipboard.writeText(pix.qrCode!); setCopied(true); }}>{copied ? "Código copiado" : "Copiar código Pix"}</button>}
+          <p className="mt-3 text-sm text-nevoa">Assim que o Pix cair, a comanda fecha sozinha.</p>
         </div>
       ) : (
         <div className="mt-6 space-y-3">
@@ -74,7 +84,13 @@ export default function TabView({ id }: { id: string }) {
               <button className="h-9 w-9 rounded-full bg-papel text-lg" aria-label="Mais pessoas" onClick={() => setPeople(people + 1)}>+</button>
             </div>
           </div>
-          <button className="btn-primary w-full" onClick={pay} disabled={paying || data.total === 0}>{paying ? "Gerando Pix…" : `Pagar ${brl(data.total)} com Pix`}</button>
+          {askCpf && (
+            <label className="block"><span className="mb-1.5 block text-sm font-medium">CPF para o Pix</span>
+              <input className="field" inputMode="numeric" placeholder="000.000.000-00" value={maskCpf(cpf)} onChange={(e) => setCpf(e.target.value)} />
+            </label>
+          )}
+          {payErr && <p role="alert" className="text-sm font-medium text-[#c22a3a]">{payErr}</p>}
+          <button className="btn-primary w-full" onClick={pay} disabled={paying || data.total === 0 || (askCpf && !isValidCpf(cpf))}>{paying ? "Gerando Pix…" : `Pagar ${brl(data.total)} com Pix`}</button>
           <button onClick={() => history.back()} className="btn-line w-full">Pedir mais</button>
         </div>
       )}

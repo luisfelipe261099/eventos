@@ -54,18 +54,22 @@ export async function getEventBySlug(slug: string) {
 }
 export const getTicketTypes = (eventId: string) => db().select<TicketType>("ticket_types", { event_id: eventId });
 
-export async function findOrCreateCustomer(name: string, phone: string): Promise<Customer> {
+export async function findOrCreateCustomer(name: string, phone: string, cpf?: string | null): Promise<Customer> {
+  const digits = cpf ? cpf.replace(/\D/g, "") : null;
   const [c] = await db().select<Customer>("customers", { phone });
-  if (c) return c;
-  const [created] = await db().insert<Customer>("customers", { id: uid(), name, phone });
+  if (c) {
+    if (digits && c.cpf !== digits) return (await db().update<Customer>("customers", c.id, { cpf: digits, asaas_id: null })) ?? c;
+    return c;
+  }
+  const [created] = await db().insert<Customer>("customers", { id: uid(), name, phone, ...(digits ? { cpf: digits } : {}) });
   return created;
 }
 
-export async function createTicket(input: { eventId: string; ticketTypeId: string; name: string; phone: string; promoterId?: string | null; free?: boolean }) {
+export async function createTicket(input: { eventId: string; ticketTypeId: string; name: string; phone: string; cpf?: string | null; promoterId?: string | null; free?: boolean }) {
   const tt = await db().get<TicketType>("ticket_types", input.ticketTypeId);
   if (!tt || tt.event_id !== input.eventId) throw new Error("Tipo de ingresso inválido");
   if (!(await db().reserveTicket(tt.id))) throw new Error("Este lote esgotou. Escolha outro ingresso.");
-  const customer = await findOrCreateCustomer(input.name, input.phone);
+  const customer = await findOrCreateCustomer(input.name, input.phone, input.cpf);
   // indicação de promoter: só vale se o promoter existir e estiver ativo
   const promoter = input.promoterId ? await db().get<Promoter>("promoters", input.promoterId) : null;
   input.promoterId = promoter && promoter.active !== false ? promoter.id : null;
@@ -82,7 +86,34 @@ export async function createTicket(input: { eventId: string; ticketTypeId: strin
 }
 
 export async function markTicketPaid(ticketId: string) {
+  const t = await db().get<Ticket>("tickets", ticketId);
+  if (!t || t.status !== "pending") return t; // idempotente: webhook pode chegar repetido
   return db().update<Ticket>("tickets", ticketId, { status: "paid" });
+}
+
+/** Cancela ingresso não pago e devolve a vaga ao lote. */
+export async function releaseTicket(ticketId: string) {
+  const t = await db().get<Ticket>("tickets", ticketId);
+  if (!t || t.status !== "pending") return;
+  await db().update<Ticket>("tickets", ticketId, { status: "cancelled" });
+  const tt = await db().get<TicketType>("ticket_types", t.ticket_type_id);
+  if (tt && tt.sold > 0) await db().update<TicketType>("ticket_types", tt.id, { sold: tt.sold - 1 });
+}
+
+/** Libera ingressos com Pix não pago há mais de 2 horas. */
+export async function releaseStalePending(maxAgeMs = 2 * 36e5) {
+  const pend = (await db().select<Ticket>("tickets", { status: "pending" })).filter((t) => Date.now() - new Date(t.created_at).getTime() > maxAgeMs);
+  for (const t of pend) await releaseTicket(t.id);
+  return pend.length;
+}
+
+/** Aplica um pagamento confirmado pela referência externa (ticket:ID ou tab:ID). */
+export async function applyPaymentRef(externalRef: string | null | undefined) {
+  if (!externalRef) return null;
+  const [kind, ref] = externalRef.split(":");
+  if (kind === "ticket") { await markTicketPaid(ref); return "ticket"; }
+  if (kind === "tab") { await db().update<Tab>("tabs", ref, { status: "paid" }); return "tab"; }
+  return null;
 }
 
 export async function getTicketFull(id: string) {

@@ -1,21 +1,27 @@
-import type { Tab } from "@/lib/types";
-import { handle, ok } from "@/lib/http";
-import { getPayment, paymentsEnabled } from "@/lib/payments";
-import { markTicketPaid } from "@/lib/repo";
-import { db } from "@/lib/db";
+import { NextResponse } from "next/server";
+import { getPayment, isPaidStatus, paymentsEnabled, webhookToken } from "@/lib/payments";
+import { applyPaymentRef } from "@/lib/repo";
 
-/** Notificação do Mercado Pago. Confirmamos o status consultando a API (não confiamos no corpo). */
-export const POST = handle(async (req: Request) => {
-  if (!paymentsEnabled()) return ok({ ignored: true });
-  const url = new URL(req.url);
-  const payload = await req.json().catch(() => ({}));
-  const id = payload?.data?.id ?? url.searchParams.get("data.id") ?? url.searchParams.get("id");
-  if (!id) return ok({ ignored: true });
-  const p = await getPayment(String(id));
-  if (p.status === "approved") {
-    const [kind, ref] = p.external_reference.split(":");
-    if (kind === "ticket") await markTicketPaid(ref);
-    if (kind === "tab") await db().update<Tab>("tabs", ref, { status: "paid" });
+/**
+ * Webhook do Asaas. Valida o header asaas-access-token e, por segurança,
+ * confere o status consultando a API (não confia só no corpo).
+ * Idempotente: o Asaas pode reenviar o mesmo evento.
+ */
+export async function POST(req: Request) {
+  if (!paymentsEnabled()) return NextResponse.json({ ignored: true });
+  const token = req.headers.get("asaas-access-token");
+  const expected = [await webhookToken(), process.env.ASAAS_WEBHOOK_TOKEN].filter(Boolean);
+  if (!token || !expected.includes(token)) return NextResponse.json({ error: "token inválido" }, { status: 401 });
+
+  const evt = await req.json().catch(() => null);
+  const paymentId: string | undefined = evt?.payment?.id;
+  if (!paymentId) return NextResponse.json({ received: true });
+  try {
+    const p = await getPayment(paymentId);
+    if (isPaidStatus(p.status, p.billingType)) await applyPaymentRef(p.externalReference);
+  } catch (e) {
+    console.error("[webhook asaas]", e);
+    return NextResponse.json({ error: "falha temporária" }, { status: 500 }); // o Asaas tenta de novo
   }
-  return ok({ received: true });
-});
+  return NextResponse.json({ received: true });
+}

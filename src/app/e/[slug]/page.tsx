@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { getEventBySlug, getTicketTypes } from "@/lib/repo";
 import { ClientShell, Flyer, Icon, longDate } from "@/components/client";
 import BuyForm from "./BuyForm";
+import { paymentsEnabled } from "@/lib/payments";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
           </dl>
           {ev.description && <p className="mt-5 leading-relaxed text-tinta/85">{ev.description}</p>}
           <h2 className="h-display mt-9 text-[26px]">Ingressos</h2>
-          <BuyForm eventId={ev.id} types={types} referral={ref ?? null} />
+          <BuyForm eventId={ev.id} types={types} referral={ref ?? null} requireCpf={paymentsEnabled()} />
         </div>
       </div>
     </ClientShell>

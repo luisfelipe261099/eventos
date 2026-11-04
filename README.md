@@ -15,7 +15,7 @@ Plataforma para casas de eventos e bares: ingressos com **QR dinâmico**, **port
 | Front + API | **Next.js 16** na **Vercel** (Hobby) | Grátis |
 | Banco, tempo real, arquivos | **Supabase** (Postgres) | Grátis (500 MB) |
 | IA (textos) | **Google Gemini Flash** via AI Studio | Grátis com limite diário |
-| Pix | **Mercado Pago** | Sem mensalidade, taxa por venda |
+| Pix | **Asaas** | Sem mensalidade, taxa por Pix recebido |
 | WhatsApp | Links `wa.me` (equipe envia com 1 toque) | Grátis |
 | Agendamento | **Vercel Cron** (1x por dia) | Grátis |
 
@@ -47,6 +47,17 @@ npm test           # testes da IA, do QR e da geolocalização
 2. Em **vercel.com → Add New → Project**, importe o repositório e clique em **Deploy**. Não precisa configurar nada.
 3. Pronto: o app abre em modo demo.
 
+## Pagamentos (Asaas)
+
+- **Fluxo:**
+  1. Cria (ou reaproveita) o cliente no Asaas. O CPF é obrigatório e é pedido no checkout.
+  2. Cria a cobrança `PIX`.
+  3. Mostra o QR Code e o copia e cola.
+  4. Confirma pelo webhook `PAYMENT_RECEIVED`. Como reforço, consulta o status direto na API enquanto o cliente espera na tela.
+- **Quando conta como pago:** Pix só é considerado pago com status `RECEIVED`, porque `CONFIRMED` em Pix pode ser um bloqueio cautelar.
+- **Webhook:** o token é derivado da chave de API, então não precisa de variável extra. O botão em `/admin/setup` cadastra o webhook na conta da casa.
+- **Ingressos não pagos:** com Pix pendente há mais de 2 horas, são cancelados pela rotina diária, e a vaga volta ao lote.
+
 ## Colocar em produção (dados reais)
 
 1. **Conectar o banco:** na Vercel, abra o projeto → **Storage** → **Create Database** → **Supabase** (plano Free, região São Paulo) → conecte ao projeto. A integração cria sozinha `POSTGRES_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` e as demais variáveis.
@@ -57,7 +68,8 @@ npm test           # testes da IA, do QR e da geolocalização
    - **Cardápio:** preço, custo e estoque. O custo alimenta a IA de promoções.
    - **Promoters:** cada um recebe um link individual, `/promoter?k=código`, para enviar pelo WhatsApp.
    - **Casa e mesas:** endereço, localização da porta para o GPS dos promoters e QR codes das mesas para imprimir.
-5. **Opcionais:** `MP_ACCESS_TOKEN` (Pix real; sem ele, pagamentos são aprovados automaticamente em modo teste), `GEMINI_API_KEY` (textos por IA) e `WHATSAPP_*` (envio automático).
+5. **Pix (Asaas):** cadastre `ASAAS_API_KEY` na Vercel (sem ela, pagamentos são aprovados automaticamente em modo teste) e clique em **Configurar webhook** em `/admin/setup`. Comece com a chave do Sandbox (`$aact_hmlg_`) e troque pela de produção (`$aact_prod_`) para vender de verdade.
+6. **Opcionais:**, `GEMINI_API_KEY` (textos por IA) e `WHATSAPP_*` (envio automático).
 
 **Como o app escolhe o banco:**
 - Com `POSTGRES_URL`, fala direto com o Postgres.
@@ -74,11 +86,11 @@ npm test           # testes da IA, do QR e da geolocalização
 | `CRON_SECRET` | protege a rotina diária de convites |
 | `NEXT_PUBLIC_APP_URL` | ex.: `https://vipflow.vercel.app` |
 | `GEMINI_API_KEY` | opcional, chave grátis do aistudio.google.com |
-| `MP_ACCESS_TOKEN` | opcional, token do Mercado Pago **da casa** (Pix cai direto na conta dela) |
+| `ASAAS_API_KEY` | chave de API do Asaas **da casa** (Pix cai direto na conta dela) |
 
 5. Faça um novo deploy. O banner de "modo demo" some.
 
-Para o Pix, cadastre no Mercado Pago a URL de webhook `https://SEU_APP/api/payments/webhook`.
+
 
 ---
 
@@ -138,7 +150,7 @@ src/
     ai.ts              Gemini (com reserva sem IA)
     qr.ts              QR dinâmico com HMAC, validável offline
     geo.ts             geofence (Haversine)
-    payments.ts        Pix Mercado Pago
+    payments.ts        Pix via Asaas (cliente, cobrança, QR, webhook)
     whatsapp.ts        wa.me / WhatsApp Cloud API
     invites.ts         rotina de convites VIP
 supabase/
@@ -149,6 +161,6 @@ supabase/
 ## Próximos passos sugeridos
 1. **Login real** com Supabase Auth (por telefone ou e-mail) para cliente, promoter e equipe, no lugar da senha única do painel.
 2. **Multi-casa (SaaS):** adicionar `venue_id` nas consultas e nas políticas RLS por organização.
-3. **Split de pagamento:** usar o modelo marketplace do Mercado Pago com `application_fee` para a VipFlow cobrar a comissão dela automaticamente.
+3. **Split de pagamento:** usar o split do Asaas (`split` com `walletId` da VipFlow) para cobrar a comissão da plataforma automaticamente em cada venda.
 4. **Realtime:** trocar o polling do painel de comandas pelo Supabase Realtime.
 5. **Gerar imagens das campanhas** e publicar direto no Instagram (Meta Graph API).

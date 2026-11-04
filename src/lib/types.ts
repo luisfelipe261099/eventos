@@ -41,6 +41,8 @@ export interface Customer {
   name: string;
   phone: string;
   email?: string;
+  cpf?: string | null;
+  asaas_id?: string | null;
 }
 
 export type TicketStatus = "pending" | "paid" | "used" | "cancelled";
@@ -56,6 +58,7 @@ export interface Ticket {
   qr_seed: string;
   price_cents: number;
   is_free?: boolean;
+  payment_id?: string | null;
   created_at: string;
 }
 
@@ -109,6 +112,7 @@ export interface Tab {
   table_label: string;
   status: "open" | "paid";
   opened_at: string;
+  payment_id?: string | null;
 }
 
 export interface OrderItem {

@@ -17,6 +17,15 @@ export default function SetupClient({ initial }: { initial: SetupStatus }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [venue, setVenue] = useState({ name: "", city: "Curitiba", address: "" });
+  const [email, setEmail] = useState("");
+  const [hook, setHook] = useState(false);
+  async function setupWebhook() {
+    setBusy(true); setMsg("");
+    const r = await fetch("/api/admin/asaas", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) });
+    const j = await r.json(); setBusy(false);
+    if (!r.ok) return setMsg(j.error ?? "Não foi possível configurar o webhook.");
+    setHook(true); setMsg(`Webhook ${j.updated ? "atualizado" : "criado"} no Asaas: ${j.url}`);
+  }
 
   async function migrate() {
     setBusy(true); setMsg("");
@@ -45,7 +54,7 @@ export default function SetupClient({ initial }: { initial: SetupStatus }) {
           {s.supabase ? <>Conectado ao projeto <b className="text-white">{s.supabaseHost}</b>.</> : <>Na Vercel: projeto → <b className="text-white">Storage</b> → <b className="text-white">Create Database</b> → <b className="text-white">Supabase</b> (plano grátis) → conecte ao projeto e faça um novo deploy.</>}
         </Row>
         <Row ok={s.tables} title="2. Tabelas">
-          {s.tables ? "Criadas e atualizadas." : s.supabase ? (s.dbUrl ? "Clique para criar as tabelas no Supabase." : "Falta a variável POSTGRES_URL. Ela é criada automaticamente pela integração Supabase da Vercel.") : "Disponível depois de conectar o banco."}
+          {s.tables ? "Criadas e atualizadas." : s.supabase ? (s.dbUrl ? "Clique para criar ou atualizar as tabelas no Supabase." : "Falta a variável POSTGRES_URL. Ela é criada automaticamente pela integração Supabase da Vercel.") : "Disponível depois de conectar o banco."}
           {s.supabase && s.dbUrl && <div className="mt-3"><button className="btn" disabled={busy} onClick={migrate}>{busy ? "Aplicando…" : s.tables ? "Atualizar tabelas" : "Criar tabelas"}</button></div>}
         </Row>
         <Row ok={s.venue} title="3. Sua casa">
@@ -61,8 +70,19 @@ export default function SetupClient({ initial }: { initial: SetupStatus }) {
         <Row ok={s.adminPassword} title="4. Senha do painel">
           {s.adminPassword ? "Definida (variável ADMIN_PASSWORD). Portaria, bar e painel pedem essa senha." : "Defina ADMIN_PASSWORD nas variáveis de ambiente da Vercel. Sem ela, o painel fica aberto."}
         </Row>
-        <Row ok={s.payments} title="5. Pix (Mercado Pago)">
-          {s.payments ? "Conectado. O dinheiro cai direto na conta da casa." : "Opcional para testar. Sem MP_ACCESS_TOKEN, os pagamentos são aprovados automaticamente (modo teste). Crie as credenciais em mercadopago.com.br/developers."}
+        <Row ok={s.payments && hook} title="5. Pix (Asaas)">
+          {s.payments ? (
+            <>
+              Conectado {s.paymentsSandbox ? <b className="text-warn">em Sandbox (testes)</b> : <b className="text-ok">em produção</b>}. O dinheiro cai direto na conta Asaas da casa.
+              <div className="mt-3 flex flex-wrap gap-2">
+                <input className="input max-w-xs py-2" type="email" placeholder="E-mail para alertas do webhook" value={email} onChange={(e) => setEmail(e.target.value)} />
+                <button className="btn py-2" disabled={busy || !email.includes("@")} onClick={setupWebhook}>{hook ? "Webhook configurado ✓" : "Configurar webhook"}</button>
+              </div>
+              <div className="mt-1 text-xs">O webhook avisa o sistema na hora em que o Pix cai. Sem ele, o app confere o status enquanto o cliente espera na tela.</div>
+            </>
+          ) : (
+            <>Sem <b className="text-white">ASAAS_API_KEY</b>, os pagamentos são <b className="text-warn">aprovados automaticamente (modo teste)</b>. No Asaas: Integrações → Chaves de API → gerar chave. Cadastre a chave na Vercel como ASAAS_API_KEY. Chaves <code>$aact_hmlg_</code> usam o Sandbox; <code>$aact_prod_</code>, produção.</>
+          )}
         </Row>
         <Row ok={s.ai} title="6. IA para textos (Gemini)">
           {s.ai ? "Conectada." : "Opcional. Sem GEMINI_API_KEY, campanhas e convites usam textos prontos. A chave é grátis em aistudio.google.com."}

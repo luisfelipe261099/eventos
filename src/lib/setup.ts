@@ -8,6 +8,9 @@ import path from "node:path";
 import postgres from "postgres";
 import { hasSupabaseStorage, isSupabaseConfigured, pg, postgresUrl, supabaseUrl } from "./db";
 
+/** Migrações esperadas (mantenha igual aos arquivos de supabase/migrations; há teste garantindo). */
+export const MIGRATIONS = ["0001_init.sql", "0002_vitrine.sql", "0003_operacao.sql", "0004_asaas.sql"];
+
 export const dbUrl = () => process.env.POSTGRES_URL_NON_POOLING || process.env.DATABASE_URL || process.env.POSTGRES_URL || "";
 void postgresUrl;
 
@@ -49,6 +52,7 @@ export interface SetupStatus {
   cronSecret: boolean;
   appUrl: string;
   payments: boolean;
+  paymentsSandbox: boolean;
   ai: boolean;
   whatsapp: boolean;
   supabaseHost: string;
@@ -64,7 +68,7 @@ export async function setupStatus(): Promise<SetupStatus> {
       const [t] = await sql`select to_regclass('public.venues') is not null as ok, to_regclass('public._vipflow_migrations') is not null as m`;
       tables = t.ok && t.m;
       if (t.ok) { const [v] = await sql`select count(*)::int as n from venues`; venue = v.n > 0; }
-      if (tables) { const [n] = await sql`select count(*)::int as n from _vipflow_migrations`; tables = n.n >= 3; }
+      if (tables) { const done = (await sql<{ name: string }[]>`select name from _vipflow_migrations`).map((r) => r.name); tables = MIGRATIONS.every((m) => done.includes(m)); }
     } catch { tables = false; }
   } else if (supa) {
     try {
@@ -81,7 +85,8 @@ export async function setupStatus(): Promise<SetupStatus> {
     adminPassword: Boolean(process.env.ADMIN_PASSWORD),
     cronSecret: Boolean(process.env.CRON_SECRET),
     appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "",
-    payments: Boolean(process.env.MP_ACCESS_TOKEN),
+    payments: Boolean(process.env.ASAAS_API_KEY),
+    paymentsSandbox: (process.env.ASAAS_API_KEY ?? "").startsWith("$aact_hmlg_") || process.env.ASAAS_ENV === "sandbox",
     ai: Boolean(process.env.GEMINI_API_KEY),
     whatsapp: Boolean(process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_ID),
     supabaseHost: supabaseUrl().replace(/^https?:\/\//, "").split(".")[0] || (postgresUrl().match(/@([^:/]+)/)?.[1] ?? ""),
