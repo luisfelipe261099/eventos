@@ -1,0 +1,14 @@
+{
+  "name": "VipFlow",
+  "short_name": "VipFlow",
+  "description": "Check-in, cardápio digital, comandas e IA para casas de eventos.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#070f22",
+  "theme_color": "#070f22",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
