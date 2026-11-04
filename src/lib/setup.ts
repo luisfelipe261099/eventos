@@ -9,7 +9,7 @@ import postgres from "postgres";
 import { hasSupabaseStorage, isSupabaseConfigured, pg, postgresUrl, supabaseUrl } from "./db";
 
 /** Migrações esperadas (mantenha igual aos arquivos de supabase/migrations; há teste garantindo). */
-export const MIGRATIONS = ["0001_init.sql", "0002_vitrine.sql", "0003_operacao.sql", "0004_asaas.sql"];
+export const MIGRATIONS = ["0001_init.sql", "0002_vitrine.sql", "0003_operacao.sql", "0004_asaas.sql", "0005_midia_seguranca.sql"];
 
 export const dbUrl = () => process.env.POSTGRES_URL_NON_POOLING || process.env.DATABASE_URL || process.env.POSTGRES_URL || "";
 void postgresUrl;
@@ -53,6 +53,7 @@ export interface SetupStatus {
   appUrl: string;
   payments: boolean;
   paymentsSandbox: boolean;
+  split: boolean;
   ai: boolean;
   whatsapp: boolean;
   supabaseHost: string;
@@ -86,6 +87,7 @@ export async function setupStatus(): Promise<SetupStatus> {
     cronSecret: Boolean(process.env.CRON_SECRET),
     appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "",
     payments: Boolean(process.env.ASAAS_API_KEY),
+    split: Boolean(process.env.ASAAS_SPLIT_WALLET_ID),
     paymentsSandbox: (process.env.ASAAS_API_KEY ?? "").startsWith("$aact_hmlg_") || process.env.ASAAS_ENV === "sandbox",
     ai: Boolean(process.env.GEMINI_API_KEY),
     whatsapp: Boolean(process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_ID),

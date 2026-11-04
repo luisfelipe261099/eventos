@@ -89,7 +89,7 @@ export default function BuyForm({ eventId, types, referral, requireCpf }: { even
             {cpf.replace(/\D/g, "").length === 11 && !cpfOk && <span className="mt-1 block text-sm text-[#c22a3a]">CPF inválido. Confira os números.</span>}
           </label>
         )}
-        <p className="text-xs text-nevoa">O ingresso fica no seu celular e também enviamos o link pelo WhatsApp.</p>
+        <p className="text-xs text-nevoa">O ingresso fica no seu celular. Ao comprar, você concorda com os <a href="/termos" className="underline">termos</a>, a <a href="/privacidade" className="underline">privacidade</a> e a <a href="/cancelamento" className="underline">política de cancelamento</a>.</p>
         {err && <p role="alert" className="text-sm font-medium text-[#c22a3a]">{err}</p>}
       </div>
 

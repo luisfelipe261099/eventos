@@ -79,7 +79,9 @@ export function Footer() {
         <div>
           <h3 className="text-sm font-semibold">Ajuda</h3>
           <ul className="mt-3 space-y-2 text-sm text-white/60">
-            <li>Cancelamento e reembolso</li><li>Transferência de ingresso</li><li>Política de privacidade</li>
+            <li><Link className="hover:text-white" href="/cancelamento">Cancelamento e reembolso</Link></li>
+            <li><Link className="hover:text-white" href="/termos">Termos de uso</Link></li>
+            <li><Link className="hover:text-white" href="/privacidade">Política de privacidade</Link></li>
           </ul>
         </div>
       </div>

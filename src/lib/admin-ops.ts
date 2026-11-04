@@ -88,11 +88,21 @@ export async function savePromoter(input: Partial<Promoter> & { name: string }) 
   return p;
 }
 
-/** Upload de flyer para o Supabase Storage (bucket público "flyers"). */
+/**
+ * Upload de flyer. Com Postgres: guarda no próprio banco (tabela media) e serve
+ * em /api/media/ID com cache longo. Sem Postgres: Supabase Storage, se houver.
+ */
 export async function uploadFlyer(file: File): Promise<string> {
-  if (!hasSupabaseStorage()) throw new Error("Upload disponível depois de conectar o Supabase. Por enquanto, cole a URL de uma imagem.");
   if (!/^image\/(jpeg|png|webp)$/.test(file.type)) throw new Error("Envie uma imagem JPG, PNG ou WEBP.");
-  if (file.size > 5 * 1024 * 1024) throw new Error("Imagem muito grande (máximo 5 MB).");
+  if (file.size > 3 * 1024 * 1024) throw new Error("Imagem muito grande (máximo 3 MB).");
+  const { postgresUrl, pg } = await import("./db");
+  if (postgresUrl()) {
+    const id = uid();
+    const bytes = Buffer.from(await file.arrayBuffer());
+    await pg()`insert into media (id, mime, bytes, size) values (${id}, ${file.type}, ${bytes}, ${bytes.length})`;
+    return `/api/media/${id}`;
+  }
+  if (!hasSupabaseStorage()) throw new Error("Upload disponível depois de conectar o banco. Por enquanto, cole a URL de uma imagem.");
   const { supabaseAdmin } = await import("./db");
   const ext = file.type.split("/")[1].replace("jpeg", "jpg");
   const path = `${new Date().toISOString().slice(0, 7)}/${uid()}.${ext}`;

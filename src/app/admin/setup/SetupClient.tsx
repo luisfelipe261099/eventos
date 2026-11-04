@@ -84,6 +84,9 @@ export default function SetupClient({ initial }: { initial: SetupStatus }) {
             <>Sem <b className="text-white">ASAAS_API_KEY</b>, os pagamentos são <b className="text-warn">aprovados automaticamente (modo teste)</b>. No Asaas: Integrações → Chaves de API → gerar chave. Cadastre a chave na Vercel como ASAAS_API_KEY. Chaves <code>$aact_hmlg_</code> usam o Sandbox; <code>$aact_prod_</code>, produção.</>
           )}
         </Row>
+        <Row ok={s.split} title="5b. Comissão da VipFlow (split do Asaas)">
+          {s.split ? "Ativo: a comissão da plataforma é descontada automaticamente de cada Pix." : "Opcional. Para a VipFlow receber automaticamente uma % de cada venda, cadastre ASAAS_SPLIT_WALLET_ID (walletId da conta Asaas da VipFlow) e ASAAS_SPLIT_PERCENT (ex.: 5)."}
+        </Row>
         <Row ok={s.ai} title="6. IA para textos (Gemini)">
           {s.ai ? "Conectada." : "Opcional. Sem GEMINI_API_KEY, campanhas e convites usam textos prontos. A chave é grátis em aistudio.google.com."}
         </Row>
@@ -92,6 +95,7 @@ export default function SetupClient({ initial }: { initial: SetupStatus }) {
         </Row>
       </ol>
       {msg && <p role="status" className="rounded-xl bg-white/5 p-3 text-sm">{msg}</p>}
+      {s.adminPassword && <button className="text-sm text-mut underline" onClick={async () => { await fetch("/api/admin/login", { method: "DELETE" }); location.href = "/"; }}>Sair do painel</button>}
       {s.venue && <div className="flex flex-wrap gap-2"><Link className="btn" href="/admin/eventos/novo">Criar evento</Link><Link className="btn-ghost" href="/admin/cardapio">Montar cardápio</Link><Link className="btn-ghost" href="/admin/promoters">Cadastrar promoters</Link></div>}
     </div>
   );

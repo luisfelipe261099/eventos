@@ -17,8 +17,21 @@ export default function EventForm({ initial, canUpload }: { initial: Init; canUp
   const [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null);
   const set = (k: keyof Init, v: string | number) => setF({ ...f, [k]: v });
 
-  async function upload(file: File) {
+  /** Reduz o flyer para 1080×1350 (JPEG) antes de enviar: upload rápido e banco leve. */
+  async function shrink(file: File): Promise<File> {
+    try {
+      const bmp = await createImageBitmap(file);
+      const scale = Math.min(1, 1080 / bmp.width, 1350 / bmp.height);
+      const c = document.createElement("canvas"); c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
+      c.getContext("2d")!.drawImage(bmp, 0, 0, c.width, c.height);
+      const blob: Blob | null = await new Promise((r) => c.toBlob(r, "image/jpeg", 0.85));
+      return blob ? new File([blob], "flyer.jpg", { type: "image/jpeg" }) : file;
+    } catch { return file; }
+  }
+
+  async function upload(original: File) {
     setUploading(true); setMsg(null);
+    const file = await shrink(original);
     const fd = new FormData(); fd.append("file", file);
     const r = await fetch("/api/admin/upload", { method: "POST", body: fd }); const j = await r.json(); setUploading(false);
     if (r.ok) set("cover_url", j.url); else setMsg({ ok: false, t: j.error });

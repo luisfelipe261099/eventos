@@ -4,6 +4,7 @@ import { getTicketFull } from "@/lib/repo";
 import { brl } from "@/lib/format";
 import { ClientShell, Icon, longDate } from "@/components/client";
 import DynamicQR from "@/components/DynamicQR";
+import TicketActions from "@/components/TicketActions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Meu ingresso" };
@@ -13,7 +14,7 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
   const t = await getTicketFull(id);
   if (!t || !t.event) notFound();
   const { ticket, event, customer, ticketType, venue } = t;
-  const status = ticket.status === "used" ? { t: "Já utilizado", c: "bg-linha text-nevoa" } : ticket.status === "paid" ? { t: "Válido", c: "bg-[#e3f6ec] text-verde" } : { t: "Aguardando pagamento", c: "bg-[#fff1dc] text-[#9a5b00]" };
+  const status = ticket.status === "refunded" ? { t: "Estornado", c: "bg-linha text-nevoa" } : ticket.status === "cancelled" ? { t: "Cancelado", c: "bg-linha text-nevoa" } : ticket.status === "used" ? { t: "Já utilizado", c: "bg-linha text-nevoa" } : ticket.status === "paid" ? { t: "Válido", c: "bg-[#e3f6ec] text-verde" } : { t: "Aguardando pagamento", c: "bg-[#fff1dc] text-[#9a5b00]" };
 
   return (
     <div className="min-h-dvh bg-breu">
@@ -35,7 +36,9 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
             <div className="stub-cut" aria-hidden><i /></div>
 
             <div className="px-5 pb-6 pt-2">
-              {ticket.status === "pending" ? (
+              {ticket.status === "cancelled" || ticket.status === "refunded" ? (
+                <p className="py-16 text-center text-nevoa">Este ingresso foi {ticket.status === "refunded" ? "estornado" : "cancelado"} e não vale para a entrada.</p>
+              ) : ticket.status === "pending" ? (
                 <p className="py-16 text-center text-nevoa">Assim que o Pix for confirmado, o QR code aparece aqui.</p>
               ) : (
                 <DynamicQR ticketId={ticket.id} seed={ticket.qr_seed} />
@@ -49,6 +52,7 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
               </div>
             </div>
           </div>
+          {ticket.status !== "cancelled" && ticket.status !== "refunded" && <TicketActions title={event.name} startsAt={event.starts_at} place={[venue?.name, venue?.address].filter(Boolean).join(", ")} />}
           <p className="mt-5 text-center text-sm leading-relaxed text-white/60">Mostre este código na entrada. Ele muda a cada 30 segundos, então print de tela não funciona. Depois de aberto uma vez, funciona sem internet.</p>
         </div>
       </ClientShell>

@@ -45,7 +45,7 @@ export interface Customer {
   asaas_id?: string | null;
 }
 
-export type TicketStatus = "pending" | "paid" | "used" | "cancelled";
+export type TicketStatus = "pending" | "paid" | "used" | "cancelled" | "refunded";
 
 export interface Ticket {
   id: ID;
@@ -59,6 +59,7 @@ export interface Ticket {
   price_cents: number;
   is_free?: boolean;
   payment_id?: string | null;
+  refunded_at?: string | null;
   created_at: string;
 }
 

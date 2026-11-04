@@ -2,7 +2,7 @@ import Link from "next/link";
 
 const ITEMS = [
   ["/admin", "Ao vivo"], ["/admin/eventos", "Eventos"], ["/admin/cardapio", "Cardápio"],
-  ["/admin/promoters", "Promoters"], ["/admin/casa", "Casa e mesas"], ["/admin/setup", "Configuração"],
+  ["/admin/promoters", "Promoters"], ["/admin/financeiro", "Financeiro"], ["/admin/casa", "Casa e mesas"], ["/admin/setup", "Configuração"],
 ] as const;
 
 export default function AdminNav({ active }: { active: string }) {

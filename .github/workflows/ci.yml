@@ -1,0 +1,23 @@
+name: CI
+on:
+  push: { branches: [main] }
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: postgres }
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm test
+      - name: Migrações no Postgres
+        run: npx tsx -e 'import {runMigrations} from "./src/lib/setup"; runMigrations().then(r=>{console.log(r); return runMigrations()}).then(r=>{ if(r.applied.length) process.exit(1); console.log("idempotente ok") })'
+        env: { POSTGRES_URL: "postgres://postgres:postgres@localhost:5432/postgres" }
+      - run: npm run build

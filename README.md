@@ -47,6 +47,21 @@ npm test           # testes da IA, do QR e da geolocalização
 2. Em **vercel.com → Add New → Project**, importe o repositório e clique em **Deploy**. Não precisa configurar nada.
 3. Pronto: o app abre em modo demo.
 
+## Operação do dia a dia
+
+- **Financeiro** (`/admin/financeiro`): receita de ingressos e do bar, estornos e comissões por evento e por promoter. Exporta CSV no padrão do Excel brasileiro (resumo, ingressos, consumo, comissões) e um **backup completo em JSON**. Baixe o backup toda semana, porque o Supabase grátis não faz cópias automáticas.
+- **Ingressos do evento** (`/admin/eventos/ID`): busca por nome ou telefone. Dá para **cancelar** um ingresso pendente ou **estornar** um pago: o Pix volta ao cliente pelo Asaas e a vaga é liberada. Ingresso que já entrou não pode ser estornado.
+- **Flyers:** ficam guardados no próprio banco (tabela `media`) e são reduzidos para 1080×1350 no navegador antes do envio. São servidos em `/api/media/ID` com cache de 1 ano.
+- **Segurança:**
+  - Login com limite de 8 tentativas por IP a cada 15 minutos e comparação de senha em tempo constante.
+  - Cabeçalhos `nosniff`, `Referrer-Policy`, `X-Frame-Options` e `Permissions-Policy`.
+- **Monitoramento:** `GET /api/health` responde 503 se o banco cair. Dá para ligar num monitor gratuito como o UptimeRobot.
+- **Páginas legais:** `/termos`, `/privacidade` (LGPD) e `/cancelamento` (CDC art. 49). São **modelos**, então revise com um advogado.
+- **No ingresso:** botões "Adicionar à agenda" (.ics com lembrete 3 h antes) e "Salvar no WhatsApp".
+- **SEO:** `robots.txt` e `sitemap.xml` com os eventos. Os painéis ficam fora do Google.
+- **Região:** as funções rodam em São Paulo (`gru1`, definido no `vercel.json`).
+- **CI:** o GitHub Actions roda os testes, as migrações num Postgres e o build a cada push.
+
 ## Pagamentos (Asaas)
 
 - **Fluxo:**
@@ -55,6 +70,7 @@ npm test           # testes da IA, do QR e da geolocalização
   3. Mostra o QR Code e o copia e cola.
   4. Confirma pelo webhook `PAYMENT_RECEIVED`. Como reforço, consulta o status direto na API enquanto o cliente espera na tela.
 - **Quando conta como pago:** Pix só é considerado pago com status `RECEIVED`, porque `CONFIRMED` em Pix pode ser um bloqueio cautelar.
+- **Split (comissão da VipFlow):** com `ASAAS_SPLIT_WALLET_ID` e `ASAAS_SPLIT_PERCENT`, cada cobrança já sai com a % da plataforma descontada automaticamente.
 - **Webhook:** o token é derivado da chave de API, então não precisa de variável extra. O botão em `/admin/setup` cadastra o webhook na conta da casa.
 - **Ingressos não pagos:** com Pix pendente há mais de 2 horas, são cancelados pela rotina diária, e a vaga volta ao lote.
 

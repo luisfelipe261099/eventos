@@ -72,10 +72,29 @@ export async function createPixCharge(input: { amountCents: number; description:
     body: {
       customer, billingType: "PIX", value: input.amountCents / 100, dueDate: todayBR(),
       description: input.description.slice(0, 500), externalReference: input.externalRef,
+      ...(splitConfig() ? { split: [splitConfig()] } : {}),
     },
   });
   const qr = await asaas<{ encodedImage: string; payload: string; expirationDate: string }>(`/payments/${pay.id}/pixQrCode`);
   return { provider: "asaas", paymentId: pay.id, status: "pending", qrCode: qr.payload, qrCodeBase64: qr.encodedImage, expiresAt: qr.expirationDate, asaasCustomerId: customer };
+}
+
+/**
+ * Split: comissão da VipFlow descontada automaticamente de cada venda.
+ * ASAAS_SPLIT_WALLET_ID = walletId da conta Asaas da VipFlow; ASAAS_SPLIT_PERCENT = % (padrão 5).
+ */
+export function splitConfig(): { walletId: string; percentualValue: number } | null {
+  const walletId = process.env.ASAAS_SPLIT_WALLET_ID;
+  if (!walletId) return null;
+  const pct = Number(process.env.ASAAS_SPLIT_PERCENT ?? 5);
+  return { walletId, percentualValue: Math.min(50, Math.max(0.01, Number.isFinite(pct) ? pct : 5)) };
+}
+
+/** Estorna um Pix recebido (devolve o valor ao cliente). */
+export async function refundPayment(paymentId: string, description = "Estorno solicitado pela casa") {
+  if (!paymentsEnabled() || !paymentId || /^(teste|free)-/.test(paymentId)) return { refunded: true, simulated: true };
+  await asaas(`/payments/${paymentId}/refund`, { method: "POST", body: { description } });
+  return { refunded: true, simulated: false };
 }
 
 /** Pix só conta como pago quando RECEBIDO (CONFIRMED em Pix pode ser bloqueio cautelar). */
