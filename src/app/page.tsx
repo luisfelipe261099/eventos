@@ -52,7 +52,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ c
                 </Link>
                 <div className="px-1 pt-4">
                   <h2 className="poster text-[34px] uppercase">{e.name}</h2>
-                  <p className="mt-2 flex items-start gap-2 text-[15px] text-tinta/80"><Icon name="pin" size={18} className="mt-0.5 shrink-0 text-nevoa" />{e.venue?.name}{e.venue?.address ? `, ${e.venue.address.split("·")[1]?.trim() ?? ""}` : ""}</p>
+                  <p className="mt-2 flex items-start gap-2 text-[15px] text-tinta/80"><Icon name="pin" size={18} className="mt-0.5 shrink-0 text-nevoa" />{[e.venue?.name, e.venue?.city].filter(Boolean).join(", ")}</p>
                   <p className="mt-1 flex items-center gap-2 text-[15px] text-tinta/80"><Icon name="calendar" size={18} className="shrink-0 text-nevoa" />{longDate(e.starts_at)}</p>
                   <Link href={`/e/${e.slug}`} className="btn-primary mt-4">{e.soldOut ? "Ver evento" : "Comprar ingresso"}</Link>
                 </div>

@@ -47,15 +47,26 @@ npm test           # testes da IA, do QR e da geolocalização
 2. Em **vercel.com → Add New → Project**, importe o repositório e clique em **Deploy**. Não precisa configurar nada.
 3. Pronto: o app abre em modo demo.
 
-## Ligar os dados reais (Supabase)
+## Colocar em produção (dados reais)
 
-1. Crie um projeto em **supabase.com** (região São Paulo).
-2. **SQL Editor** → cole e rode `supabase/migrations/0001_init.sql` e depois `0002_vitrine.sql`. Em seguida rode `supabase/seed.sql`, trocando nome da casa, coordenadas da porta, evento e cardápio pelos dados reais.
-3. Em **Project Settings → API**, copie a URL, a `anon key` e a `service_role key`.
-4. Na Vercel, em **Settings → Environment Variables**, cadastre:
+1. **Conectar o banco:** na Vercel, abra o projeto → **Storage** → **Create Database** → **Supabase** (plano Free, região São Paulo) → conecte ao projeto. A integração cria sozinha `POSTGRES_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` e as demais variáveis.
+2. **Redeploy:** em Deployments → ⋯ → Redeploy, para o app ler as variáveis novas.
+3. **Configuração em 1 clique:** abra `/admin/setup`, entre com a `ADMIN_PASSWORD` e clique em **Criar tabelas**. Depois cadastre a casa. As migrações de `supabase/migrations` rodam direto no Postgres, e cada uma só uma vez.
+4. **Cadastros no painel:**
+   - **Eventos:** nome, data, descrição, lotes e flyer, com upload para o Supabase Storage.
+   - **Cardápio:** preço, custo e estoque. O custo alimenta a IA de promoções.
+   - **Promoters:** cada um recebe um link individual, `/promoter?k=código`, para enviar pelo WhatsApp.
+   - **Casa e mesas:** endereço, localização da porta para o GPS dos promoters e QR codes das mesas para imprimir.
+5. **Opcionais:** `MP_ACCESS_TOKEN` (Pix real; sem ele, pagamentos são aprovados automaticamente em modo teste), `GEMINI_API_KEY` (textos por IA) e `WHATSAPP_*` (envio automático).
 
-| Variável | Para quê |
-|---|---|
+**Como o app escolhe o banco:**
+- Com `POSTGRES_URL`, fala direto com o Postgres.
+- Só com `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`, usa a API do Supabase.
+- Sem nenhum dos dois, roda no modo demo.
+
+**Garantias:** a venda de lote é atômica (função `reserve_ticket`), então não vende além da quantidade. O check-in é único por ingresso (`unique(ticket_id)`).
+
+---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | URL do Supabase |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | chave pública |
 | `SUPABASE_SERVICE_ROLE_KEY` | chave do servidor (**nunca** exponha no front) |
@@ -83,6 +94,8 @@ Para o Pix, cadastre no Mercado Pago a URL de webhook `https://SEU_APP/api/payme
 
 | Rota | Quem usa | O que faz |
 |---|---|---|
+| `/admin/setup` | dono | Configuração e checklist de produção |
+| `/admin/eventos` · `/admin/cardapio` · `/admin/promoters` · `/admin/casa` | dono | Cadastros |
 | `/` | cliente | Vitrine: abas de categoria, carrossel de destaques, busca e agenda |
 | `/conta` | cliente | Atalhos, meus ingressos e comanda aberta |
 | `/e/[evento]` | cliente | Compra o ingresso via Pix (`?ref=ID_DO_PROMOTER` registra a indicação) |

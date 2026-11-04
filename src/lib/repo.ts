@@ -9,10 +9,16 @@ const randomSeed = () => {
   return Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
 };
 
+export class SetupRequired extends Error { constructor() { super("Configuração pendente: cadastre a casa em /admin/setup."); } }
+
 export async function getVenue(): Promise<Venue> {
-  const [v] = await db().select<Venue>("venues");
-  if (!v) throw new Error("Nenhuma casa cadastrada. Rode o seed do Supabase.");
+  const v = await getVenueOrNull();
+  if (!v) throw new SetupRequired();
   return v;
+}
+export async function getVenueOrNull(): Promise<Venue | null> {
+  const vs = await db().select<Venue>("venues");
+  return vs.sort((a, b) => a.id.localeCompare(b.id))[0] ?? null;
 }
 export async function getVenueBySlug(slug: string) {
   const [v] = await db().select<Venue>("venues", { slug });
@@ -25,7 +31,8 @@ export async function listEvents(): Promise<EventItem[]> {
 /** Próximo evento (ou o que está acontecendo agora). */
 export async function currentEvent(): Promise<EventItem | null> {
   const now = Date.now() - 8 * 36e5; // considera "atual" até 8h após o início
-  const venue = await getVenue();
+  const venue = await getVenueOrNull();
+  if (!venue) return null;
   return (await listEvents()).find((e) => e.venue_id === venue.id && new Date(e.starts_at).getTime() >= now) ?? null;
 }
 
@@ -57,14 +64,20 @@ export async function findOrCreateCustomer(name: string, phone: string): Promise
 export async function createTicket(input: { eventId: string; ticketTypeId: string; name: string; phone: string; promoterId?: string | null; free?: boolean }) {
   const tt = await db().get<TicketType>("ticket_types", input.ticketTypeId);
   if (!tt || tt.event_id !== input.eventId) throw new Error("Tipo de ingresso inválido");
-  if (tt.sold >= tt.quantity) throw new Error("Lote esgotado");
+  if (!(await db().reserveTicket(tt.id))) throw new Error("Este lote esgotou. Escolha outro ingresso.");
   const customer = await findOrCreateCustomer(input.name, input.phone);
+  // indicação de promoter: só vale se o promoter existir e estiver ativo
+  const promoter = input.promoterId ? await db().get<Promoter>("promoters", input.promoterId) : null;
+  input.promoterId = promoter && promoter.active !== false ? promoter.id : null;
   const ticket: Ticket = {
     id: uid(), event_id: input.eventId, ticket_type_id: tt.id, customer_id: customer.id, promoter_id: input.promoterId ?? null,
     status: input.free ? "paid" : "pending", qr_seed: randomSeed(), price_cents: input.free ? 0 : tt.price_cents, is_free: !!input.free, created_at: new Date().toISOString(),
   };
   await db().insert("tickets", ticket as Ticket);
-  await db().update<TicketType>("ticket_types", tt.id, { sold: tt.sold + 1 });
+  if (input.promoterId) {
+    const [already] = await db().select<GuestListEntry>("guest_list", { event_id: input.eventId, customer_id: customer.id });
+    if (!already) await db().insert<GuestListEntry>("guest_list", { id: uid(), event_id: input.eventId, promoter_id: input.promoterId, customer_id: customer.id, status: "pending", validated_at: null });
+  }
   return { ticket, customer, ticketType: tt };
 }
 
@@ -138,6 +151,14 @@ export async function promoterView(promoterId: string, eventId: string) {
 
 export const listPromoters = () => db().select<Promoter>("promoters");
 
+/** Promoter pelo código do link individual (/promoter?k=...). */
+export async function promoterByCode(code: string | null | undefined): Promise<Promoter | null> {
+  if (!code) return null;
+  const [p] = await db().select<Promoter>("promoters", { access_code: code });
+  const found = p ?? (isSupabaseConfigured() ? null : await db().get<Promoter>("promoters", code));
+  return found && found.active !== false ? found : null;
+}
+
 export async function addGuest(promoterId: string, eventId: string, name: string, phone: string) {
   const customer = await findOrCreateCustomer(name, phone);
   const entry: GuestListEntry = { id: uid(), event_id: eventId, promoter_id: promoterId, customer_id: customer.id, status: "pending", validated_at: null };
@@ -146,7 +167,9 @@ export async function addGuest(promoterId: string, eventId: string, name: string
 }
 
 /** Promoter confirma presença do convidado: só vale dentro do raio da casa. */
-export async function promoterGeoCheckin(entryId: string, point: { lat: number; lng: number; accuracy?: number }) {
+export async function promoterGeoCheckin(promoterId: string, entryId: string, point: { lat: number; lng: number; accuracy?: number }) {
+  const entry = await db().get<GuestListEntry>("guest_list", entryId);
+  if (!entry || entry.promoter_id !== promoterId) throw new Error("Este convidado não está na sua lista.");
   const venue = await getVenue();
   const geo = insideGeofence(point, venue);
   if (!geo.inside) return { ok: false as const, ...geo };

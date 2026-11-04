@@ -1,10 +1,11 @@
 import { fail, handle, ok } from "@/lib/http";
-import { currentEvent, promoterView } from "@/lib/repo";
+import { currentEvent, promoterByCode, promoterView } from "@/lib/repo";
 
 export const GET = handle(async (req: Request) => {
-  const id = new URL(req.url).searchParams.get("id");
-  if (!id) return fail("Informe o promoter");
+  const url = new URL(req.url);
+  const p = await promoterByCode(url.searchParams.get("k") ?? url.searchParams.get("id"));
+  if (!p) return fail("Link de promoter inválido ou desativado. Peça um novo para a casa.", 403);
   const ev = await currentEvent();
-  if (!ev) return fail("Nenhum evento próximo", 404);
-  return ok({ event: ev, ...(await promoterView(id, ev.id)) });
+  if (!ev) return fail("Nenhum evento agendado no momento.", 404);
+  return ok({ event: ev, ...(await promoterView(p.id, ev.id)) });
 });

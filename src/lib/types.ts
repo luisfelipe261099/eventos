@@ -73,6 +73,9 @@ export interface Promoter {
   name: string;
   phone: string;
   commission_cents: number; // por convidado validado
+  /** código do link individual do promoter (/promoter?k=...) */
+  access_code?: string;
+  active?: boolean;
 }
 
 export interface GuestListEntry {

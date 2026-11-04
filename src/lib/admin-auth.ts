@@ -10,8 +10,10 @@ export async function tokenFor(password: string) {
 }
 
 export async function isAdmin(): Promise<boolean> {
+  const { isSupabaseConfigured } = await import("./db");
+  if (!isSupabaseConfigured()) return true; // modo demo/simulação: aberto a quem estiver apresentando
   const pw = process.env.ADMIN_PASSWORD;
-  if (!pw) return true; // sem senha configurada (demo) → aberto
+  if (!pw) return true; // produção sem senha: a tela de configuração avisa
   const c = (await cookies()).get(COOKIE)?.value;
   return c === (await tokenFor(pw));
 }

@@ -8,6 +8,8 @@ import OrdersBoard from "./OrdersBoard";
 import PromoButton from "./PromoButton";
 import CampaignBox from "./CampaignBox";
 import InvitesButton from "./InvitesButton";
+import AdminNav from "./AdminNav";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +27,14 @@ function Section({ id, kick, title, children }: { id: string; kick: string; titl
 
 export default async function AdminPage() {
   const ev = await currentEvent();
-  if (!ev) return <Page><TopBar title="Painel" /><p className="text-mut">Cadastre um evento para começar.</p></Page>;
+  if (!ev) return (
+    <Page wide>
+      <TopBar title="Painel do dono" back="/" />
+      <AdminNav active="/admin" />
+      <div className="card max-w-xl"><div className="font-semibold">Nenhum evento acontecendo ou agendado</div><p className="mt-1 text-sm text-mut">Configure a casa e crie o primeiro evento para ver portaria, bar e IA aqui.</p>
+        <div className="mt-4 flex gap-2"><Link className="btn" href="/admin/eventos/novo">Criar evento</Link><Link className="btn-ghost" href="/admin/setup">Configuração</Link></div></div>
+    </Page>
+  );
   const s = await liveStats(ev.id);
   const profiles = customerProfiles(s.ds);
   const top = profiles.filter((p) => p.segment !== "ocasional").slice(0, 8);
@@ -40,6 +49,7 @@ export default async function AdminPage() {
   return (
     <Page wide>
       <TopBar title="Painel do dono" sub={`Hoje · ${ev.name}`} back="/" />
+      <AdminNav active="/admin" />
       <DemoBanner show={!isSupabaseConfigured()} />
       <nav className="-mx-4 flex gap-2 overflow-x-auto px-4 text-sm">
         {[["geral", "Visão geral"], ["comandas", "Comandas"], ["clientes", "IA · Clientes"], ["bar", "IA · Bar"], ["previsao", "IA · Previsão"], ["marketing", "IA · Marketing"]].map(([id, t]) => (

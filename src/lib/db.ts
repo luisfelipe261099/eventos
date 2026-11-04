@@ -9,6 +9,7 @@
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { deflateRawSync, inflateRawSync } from "node:zlib";
+import postgres from "postgres";
 import { buildDemoData, type DemoData } from "./demo";
 
 export type TableName = keyof DemoData;
@@ -16,28 +17,97 @@ type Row = { id: string };
 
 export interface DB {
   mode: "supabase" | "demo";
+  /** Reserva 1 ingresso do lote de forma atômica (false = esgotado). */
+  reserveTicket(ticketTypeId: string): Promise<boolean>;
   select<T extends Row>(table: TableName, match?: Partial<T>): Promise<T[]>;
   get<T extends Row>(table: TableName, id: string): Promise<T | null>;
   insert<T extends Row>(table: TableName, rows: T | T[]): Promise<T[]>;
   update<T extends Row>(table: TableName, id: string, patch: Partial<T>): Promise<T | null>;
 }
 
-export const isSupabaseConfigured = () =>
-  Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+/** Aceita os nomes de variável da integração Supabase da Vercel e os manuais. */
+export const supabaseUrl = () => process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "";
+/** Supabase Storage disponível (upload de flyers). */
+export const hasSupabaseStorage = () => Boolean(supabaseUrl() && process.env.SUPABASE_SERVICE_ROLE_KEY);
+/** URL do Postgres (a integração Supabase da Vercel cria POSTGRES_URL). */
+export const postgresUrl = () => process.env.POSTGRES_URL || process.env.DATABASE_URL || process.env.POSTGRES_URL_NON_POOLING || "";
+/**
+ * Modo produção: há banco real configurado (Postgres direto ou API do Supabase).
+ * Sem nenhum dos dois, o app roda no modo demonstração.
+ */
+export const isSupabaseConfigured = () => Boolean(postgresUrl()) || hasSupabaseStorage();
 
 // ---------------- Supabase ----------------
 let sb: SupabaseClient | null = null;
 function supa(): SupabaseClient {
   if (!sb) {
-    sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+    sb = createClient(supabaseUrl(), process.env.SUPABASE_SERVICE_ROLE_KEY!, {
       auth: { persistSession: false },
     });
   }
   return sb;
 }
 
+export const supabaseAdmin = () => supa();
+
+// ---------------- Postgres direto (principal em produção) ----------------
+type Sql = ReturnType<typeof postgres>;
+const gp = globalThis as unknown as { __vfSql?: Sql };
+export function pg(): Sql {
+  if (!gp.__vfSql) {
+    const url = postgresUrl();
+    const local = /localhost|127\.0\.0\.1/.test(url);
+    gp.__vfSql = postgres(url, {
+      ssl: local ? false : "require", max: 3, idle_timeout: 20, connect_timeout: 15,
+      prepare: false, // compatível com o pooler do Supabase (porta 6543)
+      transform: { undefined: null, value: { from: (v: unknown) => (v instanceof Date ? v.toISOString() : v) } },
+      onnotice: () => {},
+    });
+  }
+  return gp.__vfSql;
+}
+
+const postgresDB: DB = {
+  mode: "supabase",
+  async reserveTicket(id) {
+    const [r] = await pg()`select reserve_ticket(${id}) as ok`;
+    return r?.ok === true;
+  },
+  async select(table, match) {
+    const sql = pg();
+    const conds = Object.entries(match ?? {}).map(([k, v]) => sql`${sql(k)} = ${v as never}`);
+    const where = conds.length ? conds.reduce((a, c) => sql`${a} and ${c}`) : sql`true`;
+    return (await sql`select * from ${sql(table)} where ${where} limit 20000`) as never;
+  },
+  async get(table, id) {
+    const sql = pg();
+    const [r] = await sql`select * from ${sql(table)} where id = ${id}`;
+    return (r ?? null) as never;
+  },
+  async insert(table, rows) {
+    const sql = pg();
+    const arr = (Array.isArray(rows) ? rows : [rows]) as unknown as Record<string, unknown>[];
+    if (!arr.length) return [] as never;
+    const cols = [...new Set(arr.flatMap((r) => Object.keys(r)))];
+    const norm = arr.map((r) => Object.fromEntries(cols.map((c) => [c, r[c] === undefined ? null : r[c]])));
+    return (await sql`insert into ${sql(table)} ${sql(norm as never, cols)} returning *`) as never;
+  },
+  async update(table, id, patch) {
+    const sql = pg();
+    const p = Object.fromEntries(Object.entries(patch as Record<string, unknown>).filter(([k, v]) => k !== "id" && v !== undefined));
+    if (!Object.keys(p).length) return this.get(table, id);
+    const [r] = await sql`update ${sql(table)} set ${sql(p as never)} where id = ${id} returning *`;
+    return (r ?? null) as never;
+  },
+};
+
 const supabaseDB: DB = {
   mode: "supabase",
+  async reserveTicket(id) {
+    const { data, error } = await supa().rpc("reserve_ticket", { p_ticket_type_id: id });
+    if (error) throw error;
+    return data === true;
+  },
   async select(table, match) {
     let q = supa().from(table).select("*");
     for (const [k, v] of Object.entries(match ?? {})) q = q.eq(k, v as never);
@@ -129,6 +199,12 @@ const strip = (r: Row) => Object.fromEntries(Object.entries(r as unknown as Reco
 
 const demoDB: DB = {
   mode: "demo",
+  async reserveTicket(id) {
+    const tt = await this.get<{ id: string; sold: number; quantity: number }>("ticket_types", id);
+    if (!tt || tt.sold >= tt.quantity) return false;
+    await this.update<{ id: string; sold: number }>("ticket_types", id, { sold: tt.sold + 1 });
+    return true;
+  },
   async select(table, match) {
     const rows = (await session()).data[table] as unknown as Row[];
     const m = Object.entries(match ?? {});
@@ -155,7 +231,9 @@ const demoDB: DB = {
 };
 
 export function db(): DB {
-  return isSupabaseConfigured() ? supabaseDB : demoDB;
+  if (postgresUrl()) return postgresDB;
+  if (hasSupabaseStorage()) return supabaseDB;
+  return demoDB;
 }
 
 /** No Supabase: UUID. Na demo: id curto, para caber no cookie da simulação. */

@@ -84,8 +84,8 @@ export function buildDemoData(): DemoData {
   for (let i = 0; i < 90; i++) customers.push({ id: `c-${i}`, name: `${pick(FIRST)} ${pick(LAST).charAt(0)}.`, phone: `+55419${String(80000000 + i)}` });
 
   const promoters: Promoter[] = [
-    { id: "pr-1", name: "Léo Promoter", phone: "+5541988887777", commission_cents: 1500 },
-    { id: "pr-2", name: "Bia Eventos", phone: "+5541988886666", commission_cents: 1500 },
+    { id: "pr-1", name: "Léo Promoter", phone: "+5541988887777", commission_cents: 1500, access_code: "pr-1", active: true },
+    { id: "pr-2", name: "Bia Eventos", phone: "+5541988886666", commission_cents: 1500, access_code: "pr-2", active: true },
   ];
 
   const events: EventItem[] = []; const ticket_types: TicketType[] = []; const tickets: Ticket[] = [];

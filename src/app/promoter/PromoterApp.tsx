@@ -4,20 +4,27 @@ import { Avatar, Pill, Stat } from "@/components/ui";
 import { brl } from "@/lib/format";
 
 type Guest = { id: string; name: string; status: "pending" | "on_the_way" | "inside" };
-type View = { event: { name: string; slug: string }; guests: Guest[]; inside: number; total: number; commissionCents: number };
+type View = { event: { name: string; slug: string }; promoter: { id: string; name: string } | null; guests: Guest[]; inside: number; total: number; commissionCents: number };
 
-export default function PromoterApp({ promoters }: { promoters: { id: string; name: string }[] }) {
+export default function PromoterApp({ demoChoices, linkCode, invalidLink }: { demoChoices: { code: string; name: string }[]; linkCode: string | null; invalidLink: boolean }) {
+  const promoters = demoChoices.map((c) => ({ id: c.code, name: c.name }));
   const [pid, setPid] = useState<string>("");
   const [view, setView] = useState<View | null>(null);
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", phone: "" });
 
-  useEffect(() => { setPid(localStorage.getItem("vf_promoter") ?? promoters[0]?.id ?? ""); }, [promoters]);
+  // o código do link fica salvo no celular do promoter
+  useEffect(() => {
+    if (linkCode) { localStorage.setItem("vf_promoter", linkCode); setPid(linkCode); return; }
+    const saved = localStorage.getItem("vf_promoter");
+    setPid(saved ?? demoChoices[0]?.code ?? "");
+  }, [linkCode, demoChoices]);
   const load = useCallback(async () => {
     if (!pid) return;
-    const r = await fetch(`/api/promoter?id=${pid}`, { cache: "no-store" });
-    if (r.ok) setView(await r.json());
+    const r = await fetch(`/api/promoter?k=${encodeURIComponent(pid)}`, { cache: "no-store" });
+    if (r.ok) { setView(await r.json()); setMsg((m) => (m.startsWith("Link") ? "" : m)); }
+    else { setView(null); setMsg((await r.json()).error ?? "Não foi possível carregar sua lista."); }
   }, [pid]);
   useEffect(() => { load(); const t = setInterval(load, 8000); return () => clearInterval(t); }, [load]);
 
@@ -25,7 +32,7 @@ export default function PromoterApp({ promoters }: { promoters: { id: string; na
     setMsg(""); setBusy(entryId);
     if (!navigator.geolocation) { setBusy(null); return setMsg("Seu aparelho não tem GPS disponível."); }
     navigator.geolocation.getCurrentPosition(async (pos) => {
-      const r = await fetch("/api/promoter/checkin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ entryId, lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }) });
+      const r = await fetch("/api/promoter/checkin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ k: pid, entryId, lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }) });
       const j = await r.json(); setBusy(null);
       setMsg(r.ok ? `✓ Presença confirmada (${j.distance} m da casa)` : j.error);
       load();
@@ -33,19 +40,24 @@ export default function PromoterApp({ promoters }: { promoters: { id: string; na
   }
 
   async function addGuest() {
-    const r = await fetch("/api/promoter/guest", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ promoterId: pid, ...form }) });
+    const r = await fetch("/api/promoter/guest", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ k: pid, ...form }) });
     if (r.ok) { setForm({ name: "", phone: "" }); load(); } else setMsg((await r.json()).error);
   }
 
-  const link = view && typeof window !== "undefined" ? `${location.origin}/e/${view.event.slug}?ref=${pid}` : "";
+  const link = view?.promoter && typeof window !== "undefined" ? `${location.origin}/e/${view.event.slug}?ref=${view.promoter.id}` : "";
   const tone = { inside: "ok", on_the_way: "warn", pending: "mut" } as const;
   const label = { inside: "✓ Na casa", on_the_way: "A caminho", pending: "Pendente" };
 
   return (
     <div className="space-y-4">
-      <select className="input" value={pid} onChange={(e) => { setPid(e.target.value); localStorage.setItem("vf_promoter", e.target.value); }}>
-        {promoters.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-      </select>
+      {invalidLink && <p className="rounded-xl bg-bad/15 p-3 text-sm text-bad">Este link de promoter não é válido ou foi desativado. Peça um novo para a casa.</p>}
+      {promoters.length > 0 ? (
+        <select className="input" aria-label="Promoter (demonstração)" value={pid} onChange={(e) => { setPid(e.target.value); localStorage.setItem("vf_promoter", e.target.value); }}>
+          {promoters.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+      ) : !pid ? (
+        <div className="card text-sm text-mut">Abra o link de acesso que a casa enviou para você pelo WhatsApp.</div>
+      ) : view?.promoter && <div className="text-sm">Olá, <b>{view.promoter.name.split(" ")[0]}</b></div>}
       {view && (
         <>
           <div className="text-sm text-mut">{view.event.name}</div>
