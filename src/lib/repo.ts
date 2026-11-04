@@ -25,11 +25,25 @@ export async function listEvents(): Promise<EventItem[]> {
 /** Próximo evento (ou o que está acontecendo agora). */
 export async function currentEvent(): Promise<EventItem | null> {
   const now = Date.now() - 8 * 36e5; // considera "atual" até 8h após o início
-  return (await listEvents()).find((e) => new Date(e.starts_at).getTime() >= now) ?? null;
+  const venue = await getVenue();
+  return (await listEvents()).find((e) => e.venue_id === venue.id && new Date(e.starts_at).getTime() >= now) ?? null;
+}
+
+/** Vitrine: próximos eventos de todas as casas, com casa e menor preço. */
+export async function upcomingShowcase() {
+  const now = Date.now() - 6 * 36e5;
+  const [events, venues, types] = await Promise.all([listEvents(), db().select<Venue>("venues"), db().select<TicketType>("ticket_types")]);
+  const vById = new Map(venues.map((v) => [v.id, v]));
+  return events.filter((e) => new Date(e.starts_at).getTime() >= now).map((e) => {
+    const t = types.filter((x) => x.event_id === e.id);
+    const open = t.filter((x) => x.sold < x.quantity);
+    return { ...e, venue: vById.get(e.venue_id) ?? null, fromCents: open.length ? Math.min(...open.map((x) => x.price_cents)) : null, soldOut: t.length > 0 && open.length === 0 };
+  });
 }
 export async function getEventBySlug(slug: string) {
   const [e] = await db().select<EventItem>("events", { slug });
-  return e ?? null;
+  if (!e) return null;
+  return { ...e, venue: await db().get<Venue>("venues", e.venue_id) };
 }
 export const getTicketTypes = (eventId: string) => db().select<TicketType>("ticket_types", { event_id: eventId });
 
@@ -66,7 +80,8 @@ export async function getTicketFull(id: string) {
     db().get<Customer>("customers", ticket.customer_id),
     db().get<TicketType>("ticket_types", ticket.ticket_type_id),
   ]);
-  return { ticket, event, customer, ticketType };
+  const venue = event ? await db().get<Venue>("venues", event.venue_id) : null;
+  return { ticket, event, customer, ticketType, venue };
 }
 
 /** Lista que a portaria baixa ANTES do evento para validar offline. */

@@ -7,7 +7,7 @@ export function Logo({ h = 28 }: { h?: number }) {
 
 export function TopBar({ title, sub, back }: { title: string; sub?: string; back?: string }) {
   return (
-    <header className="sticky top-0 z-20 -mx-4 mb-4 flex items-center gap-3 border-b border-line/60 bg-bg/80 px-4 py-3 backdrop-blur">
+    <header className="sticky top-0 z-20 -mx-4 mb-4 flex items-center gap-3 border-b border-line/60 bg-bg/85 px-4 py-3 backdrop-blur">
       {back && <Link href={back} className="text-2xl leading-none text-mut" aria-label="Voltar">‹</Link>}
       <div className="min-w-0 flex-1">
         {sub && <div className="truncate text-xs text-mut">{sub}</div>}
@@ -18,8 +18,9 @@ export function TopBar({ title, sub, back }: { title: string; sub?: string; back
   );
 }
 
+/** Layout das telas de operação (escuro). */
 export function Page({ children, wide = false }: { children: React.ReactNode; wide?: boolean }) {
-  return <main className={`mx-auto min-h-dvh px-4 pb-24 ${wide ? "max-w-6xl" : "max-w-md"}`}>{children}</main>;
+  return <div className="op"><main className={`mx-auto min-h-dvh px-4 pb-24 ${wide ? "max-w-6xl" : "max-w-md"}`}>{children}</main></div>;
 }
 
 export function DemoBanner({ show }: { show: boolean }) {

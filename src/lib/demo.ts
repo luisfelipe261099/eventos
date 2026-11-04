@@ -46,7 +46,9 @@ export function buildDemoData(): DemoData {
   const r = rng(42);
   const pick = <T,>(a: T[]) => a[Math.floor(r() * a.length)];
 
-  const venue: Venue = { id: "venue-1", slug: "casa-demo", name: "Casa Demo", city: "Curitiba", lat: -25.4284, lng: -49.2733, geofence_m: 80 };
+  const venue: Venue = { id: "venue-1", slug: "casa-demo", name: "Casa Demo", city: "Curitiba", lat: -25.4284, lng: -49.2733, geofence_m: 80, address: "Rua XV de Novembro, 1000 · Centro, Curitiba" };
+  const galpao: Venue = { id: "venue-2", slug: "galpao-41", name: "Galpão 41", city: "Curitiba", lat: -25.4405, lng: -49.2620, geofence_m: 80, address: "Rua Engenheiros Rebouças, 410 · Rebouças, Curitiba" };
+  const quintal: Venue = { id: "venue-3", slug: "quintal-batel", name: "Quintal Batel", city: "Curitiba", lat: -25.4420, lng: -49.2890, geofence_m: 60, address: "Av. do Batel, 1500 · Batel, Curitiba" };
 
   const products: Product[] = [
     { id: "p-chopp", name: "Chopp 500 ml", category: "Cervejas", price_cents: 1800, cost_cents: 600, stock: 800 },
@@ -94,7 +96,7 @@ export function buildDemoData(): DemoData {
   for (let w = 12; w >= 0; w--) {
     const d = new Date(upcoming); d.setDate(d.getDate() - w * 7);
     const isLive = w === 0;
-    const ev: EventItem = { id: `ev-${w}`, venue_id: venue.id, slug: isLive ? "sexta-open-bar" : `sexta-${d.toISOString().slice(0, 10)}`, name: isLive ? "Sexta Open Bar" : names[w % names.length], starts_at: d.toISOString(), capacity: 1500, cover_color: "#7b2ff7" };
+    const ev: EventItem = { id: `ev-${w}`, venue_id: venue.id, slug: isLive ? "sexta-open-bar" : `sexta-${d.toISOString().slice(0, 10)}`, name: isLive ? "Sexta Open Bar" : names[w % names.length], starts_at: d.toISOString(), capacity: 1500, cover_color: "#7b2ff7", cover_url: "/posters/sexta-open-bar.jpg", category: "Festas", min_age: 18, description: "Gin, chopp e caipirinha à vontade até 1h. Pista com DJs residentes e camarotes com serviço de garrafa." };
     events.push(ev);
     const tPista: TicketType = { id: `tt-${w}-pista`, event_id: ev.id, name: "Pista · 2º lote", price_cents: 6000, quantity: 1200, sold: 0 };
     const tCam: TicketType = { id: `tt-${w}-cam`, event_id: ev.id, name: "Camarote VIP", price_cents: 15000, quantity: 150, sold: 0 };
@@ -140,6 +142,22 @@ export function buildDemoData(): DemoData {
     }
   }
 
+  // próximos eventos da vitrine (outras casas e datas)
+  const at = (days: number, hour: number) => { const d = new Date(upcoming); d.setDate(d.getDate() + days); d.setHours(hour, 0, 0, 0); return d.toISOString(); };
+  const extra: [string, string, string, string, number, number, EventItem["category"], string, number, number][] = [
+    ["baile-neon", "Baile Neon", "venue-2", "/posters/baile-neon.jpg", 1, 23, "Festas", "DJ Kalu, MC Vitória e um B2B surpresa. Pista única, som de galpão.", 5000, 12000],
+    ["samba-no-quintal", "Samba no Quintal", "venue-3", "/posters/samba-no-quintal.jpg", 2, 16, "Shows", "Roda de samba ao ar livre com feijoada até as 19h.", 4000, 9000],
+    ["subsolo-techno", "Subsolo", "venue-2", "/posters/subsolo-techno.jpg", 6, 23, "Festas", "Techno a noite toda, das 23h às 7h. Ayla, Renzo e Kørt.", 6000, 0],
+    ["sexta-sertaneja", "Sexta Sertaneja", "venue-1", "/posters/sexta-sertaneja.jpg", 7, 22, "Shows", "João & Rafa ao vivo. Camarotes limitados.", 7000, 18000],
+    ["pagode-de-mesa", "Pagode de Mesa", "venue-3", "/posters/pagode-de-mesa.jpg", 8, 18, "Barzinho", "Grupo Roda de Amigos. Reserve sua mesa para até 6 pessoas.", 3000, 25000],
+  ];
+  extra.forEach(([slug, name, vid, cover, days, hour, category, description, pista, vip], i) => {
+    const id = `ev-x${i}`;
+    events.push({ id, venue_id: vid, slug, name, starts_at: at(days, hour), capacity: 800, cover_color: "#000", cover_url: cover, category, description, min_age: 18 });
+    ticket_types.push({ id: `tt-x${i}-pista`, event_id: id, name: category === "Barzinho" ? "Entrada" : "Pista · 1º lote", price_cents: pista, quantity: 600, sold: 120 + i * 37 });
+    if (vip) ticket_types.push({ id: `tt-x${i}-vip`, event_id: id, name: category === "Barzinho" ? "Mesa para 6" : "Camarote", price_cents: vip, quantity: 40, sold: 12 + i * 3 });
+  });
+
   const invites: Invite[] = [];
-  return { venues: [venue], events, ticket_types, customers, tickets, checkins, promoters, guest_list, products, tabs, order_items, invites };
+  return { venues: [venue, galpao, quintal], events, ticket_types, customers, tickets, checkins, promoters, guest_list, products, tabs, order_items, invites };
 }

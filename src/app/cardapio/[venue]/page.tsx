@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation";
 import { currentEvent, getVenueBySlug, listProducts } from "@/lib/repo";
-import { Page, TopBar } from "@/components/ui";
+import { ClientShell } from "@/components/client";
 import Menu from "./Menu";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Cardápio" };
 
 export default async function CardapioPage({ params, searchParams }: { params: Promise<{ venue: string }>; searchParams: Promise<{ mesa?: string }> }) {
   const { venue: slug } = await params;
@@ -13,9 +14,12 @@ export default async function CardapioPage({ params, searchParams }: { params: P
   const [products, ev] = await Promise.all([listProducts(), currentEvent()]);
   const table = mesa ? `Mesa ${mesa}` : "Pista";
   return (
-    <Page>
-      <TopBar title="Cardápio" sub={`${venue.name} · ${table}`} back="/" />
-      {!ev ? <p className="text-mut">Nenhum evento acontecendo agora.</p> : <Menu products={products} table={table} />}
-    </Page>
+    <ClientShell back="/">
+      <div className="mx-auto max-w-md pt-6">
+        <p className="text-sm text-nevoa">{venue.name} · {table}</p>
+        <h1 className="h-display text-[34px]">Cardápio</h1>
+        {!ev ? <p className="mt-6 text-nevoa">O cardápio abre quando a casa estiver funcionando.</p> : <Menu products={products} table={table} />}
+      </div>
+    </ClientShell>
   );
 }

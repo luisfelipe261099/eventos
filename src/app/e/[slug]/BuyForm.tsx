@@ -13,6 +13,7 @@ export default function BuyForm({ eventId, types, referral }: { eventId: string;
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
+  const [copied, setCopied] = useState(false);
   const [pending, setPending] = useState<{ ticketId: string; pix: Pix } | null>(null);
   const chosen = types.find((t) => t.id === sel);
 
@@ -21,7 +22,6 @@ export default function BuyForm({ eventId, types, referral }: { eventId: string;
     if (saved) { const p = JSON.parse(saved); setName(p.name ?? ""); setPhone(p.phone ?? ""); }
   }, []);
 
-  // aguardando pagamento Pix → consulta o status a cada 4 s
   useEffect(() => {
     if (!pending) return;
     const t = setInterval(async () => {
@@ -36,41 +36,59 @@ export default function BuyForm({ eventId, types, referral }: { eventId: string;
     localStorage.setItem("vf_profile", JSON.stringify({ name, phone }));
     const r = await fetch("/api/tickets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventId, ticketTypeId: sel, name, phone, ref: referral }) });
     const j = await r.json(); setLoading(false);
-    if (!r.ok) return setErr(j.error ?? "Erro ao comprar");
-    const mine = JSON.parse(localStorage.getItem("vf_tickets") ?? "[]"); localStorage.setItem("vf_tickets", JSON.stringify([j.ticketId, ...mine]));
+    if (!r.ok) return setErr(j.error ?? "Não foi possível concluir a compra. Tente de novo.");
+    const mine: string[] = JSON.parse(localStorage.getItem("vf_tickets") ?? "[]");
+    localStorage.setItem("vf_tickets", JSON.stringify([j.ticketId, ...mine.filter((x) => x !== j.ticketId)]));
     if (j.pix.status === "approved") router.push(`/ingresso/${j.ticketId}`);
     else setPending({ ticketId: j.ticketId, pix: j.pix });
   }
 
   if (pending) return (
-    <div className="card mt-4 text-center">
-      <div className="kick">Pague com Pix</div>
-      {pending.pix.qrCodeBase64 && <img alt="QR Pix" className="mx-auto mt-3 w-56 rounded-xl bg-white p-2" src={`data:image/png;base64,${pending.pix.qrCodeBase64}`} />}
-      {pending.pix.qrCode && <button className="btn-ghost mt-3 w-full text-xs" onClick={() => navigator.clipboard.writeText(pending.pix.qrCode!)}>Copiar código Pix</button>}
-      <p className="mt-3 text-sm text-mut">Assim que o pagamento cair, seu ingresso abre sozinho.</p>
+    <div className="sheet mt-4 p-6 text-center">
+      <h3 className="h-display text-2xl">Pague com Pix</h3>
+      <p className="mt-1 text-sm text-nevoa">Abra o app do seu banco e escaneie o código.</p>
+      {pending.pix.qrCodeBase64 && <img alt="QR code do Pix" className="mx-auto mt-4 w-56" src={`data:image/png;base64,${pending.pix.qrCodeBase64}`} />}
+      {pending.pix.qrCode && <button className="btn-line mt-4 w-full" onClick={() => { navigator.clipboard.writeText(pending.pix.qrCode!); setCopied(true); }}>{copied ? "Código copiado" : "Copiar código Pix"}</button>}
+      <p className="mt-4 text-sm text-nevoa">Seu ingresso abre sozinho assim que o pagamento for confirmado.</p>
     </div>
   );
 
   return (
-    <div className="mt-4 space-y-3">
-      <div className="text-sm text-mut">Escolha o ingresso</div>
-      {types.map((t) => {
-        const soldOut = t.sold >= t.quantity;
-        return (
-          <button key={t.id} disabled={soldOut} onClick={() => setSel(t.id)}
-            className={`flex w-full items-center justify-between rounded-xl border p-4 text-left transition ${sel === t.id ? "border-brand bg-brand/10" : "border-line bg-white/5"} ${soldOut ? "opacity-40" : ""}`}>
-            <div><div className="font-semibold">{t.name}</div><div className="text-xs text-mut">{soldOut ? "Esgotado" : t.quantity - t.sold < 50 ? "Restam poucos" : "Disponível"}</div></div>
-            <div className="font-bold">{brl(t.price_cents)}</div>
-          </button>
-        );
-      })}
-      <input className="input" placeholder="Seu nome" value={name} onChange={(e) => setName(e.target.value)} />
-      <input className="input" placeholder="WhatsApp (com DDD)" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
-      {err && <p className="text-sm text-bad">{err}</p>}
-      <button className="btn w-full" disabled={!chosen || loading || !name || !phone} onClick={buy}>
-        {loading ? "Processando…" : `Pagar com Pix · ${chosen ? brl(chosen.price_cents) : ""}`}
-      </button>
-      {referral && <p className="text-center text-xs text-mut">Indicado por promoter</p>}
+    <div className="mt-4">
+      <div role="radiogroup" aria-label="Tipo de ingresso" className="space-y-3">
+        {types.map((t) => {
+          const soldOut = t.sold >= t.quantity;
+          const left = t.quantity - t.sold;
+          const active = sel === t.id;
+          return (
+            <button key={t.id} role="radio" aria-checked={active} disabled={soldOut} onClick={() => setSel(t.id)}
+              className={`stub flex w-full items-stretch overflow-hidden text-left ring-2 transition-shadow ${active ? "ring-violeta" : "ring-transparent"} ${soldOut ? "opacity-45" : ""}`}>
+              <div className="flex-1 p-4">
+                <div className="font-semibold">{t.name}</div>
+                <div className="mt-0.5 text-sm text-nevoa">{soldOut ? "Esgotado" : left <= 50 ? `Restam ${left}` : "Disponível"}</div>
+              </div>
+              <div className="relative flex w-28 items-center justify-center border-l-2 border-dashed border-linha">
+                <span className="absolute -top-3 -left-3 h-6 w-6 rounded-full bg-papel" /><span className="absolute -bottom-3 -left-3 h-6 w-6 rounded-full bg-papel" />
+                <span className="poster text-[24px]">{t.price_cents === 0 ? "Grátis" : brl(t.price_cents)}</span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="mt-6 space-y-3">
+        <label className="block"><span className="mb-1.5 block text-sm font-medium">Nome completo</span><input className="field" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} /></label>
+        <label className="block"><span className="mb-1.5 block text-sm font-medium">WhatsApp</span><input className="field" inputMode="tel" autoComplete="tel" placeholder="(41) 90000-0000" value={phone} onChange={(e) => setPhone(e.target.value)} /></label>
+        <p className="text-xs text-nevoa">O ingresso fica no seu celular e também enviamos o link pelo WhatsApp.</p>
+        {err && <p role="alert" className="text-sm font-medium text-[#c22a3a]">{err}</p>}
+      </div>
+
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-linha bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-md items-center gap-4 px-5 py-3 pb-[max(12px,env(safe-area-inset-bottom))]">
+          <div className="flex-1"><div className="text-xs text-nevoa">{chosen?.name ?? "Escolha um ingresso"}</div><div className="poster text-[26px]">{chosen ? brl(chosen.price_cents) : "—"}</div></div>
+          <button className="btn-primary" disabled={!chosen || loading || !name.trim() || !phone.trim()} onClick={buy}>{loading ? "Processando…" : "Comprar com Pix"}</button>
+        </div>
+      </div>
     </div>
   );
 }

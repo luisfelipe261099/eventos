@@ -30,7 +30,7 @@ test("caipirinha de kiwi aparece como parada com promoção que mantém margem",
 });
 
 test("previsão de público e equipe", () => {
-  const live = ds.events.at(-1)!;
+  const live = ds.events.find((e) => e.id === "ev-0")!;
   const f = demandForecast(ds, live.id);
   assert.ok(f.expectedAttendance > 0);
   assert.ok(f.staff.bartenders >= 2);

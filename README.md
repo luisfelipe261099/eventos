@@ -48,7 +48,7 @@ npm test           # testes da IA, do QR e da geolocalização
 ## Ligar os dados reais (Supabase)
 
 1. Crie um projeto em **supabase.com** (região São Paulo).
-2. **SQL Editor** → cole e rode `supabase/migrations/0001_init.sql`. Depois rode `supabase/seed.sql`, trocando nome da casa, coordenadas da porta, evento e cardápio pelos dados reais.
+2. **SQL Editor** → cole e rode `supabase/migrations/0001_init.sql` e depois `0002_vitrine.sql`. Em seguida rode `supabase/seed.sql`, trocando nome da casa, coordenadas da porta, evento e cardápio pelos dados reais.
 3. Em **Project Settings → API**, copie a URL, a `anon key` e a `service_role key`.
 4. Na Vercel, em **Settings → Environment Variables**, cadastre:
 
@@ -69,11 +69,20 @@ Para o Pix, cadastre no Mercado Pago a URL de webhook `https://SEU_APP/api/payme
 
 ---
 
+## Design
+
+- **App do cliente (claro):** os flyers dos eventos são a cor da página. A interface usa preto, branco e cinza-claro, e o violeta VipFlow (`#8B2CF5`) aparece só no botão principal e na aba ativa.
+- **Tipografia:** Archivo, auto-hospedada via `@fontsource-variable/archivo`, sem depender do Google Fonts. Títulos na largura condensada e peso 800 (classe `.poster`), com pegada de cartaz de festa.
+- **Assinatura visual:** ingresso e comanda em formato de canhoto, com picote e recortes laterais (classes `.stub` e `.stub-cut`).
+- **Operação (escuro):** portaria, promoter e painel usam o tema escuro (`.op`), mais confortável na balada.
+- **Flyers:** em `public/posters` estão os flyers fictícios da demo. Em produção, cada evento usa `cover_url`; suba as imagens no bucket `flyers` do Supabase Storage, na proporção 4:5 (1080×1350).
+
 ## Mapa do app
 
 | Rota | Quem usa | O que faz |
 |---|---|---|
-| `/` | todos | Página inicial com atalhos |
+| `/` | cliente | Vitrine: abas de categoria, carrossel de destaques, busca e agenda |
+| `/conta` | cliente | Atalhos, meus ingressos e comanda aberta |
 | `/e/[evento]` | cliente | Compra o ingresso via Pix (`?ref=ID_DO_PROMOTER` registra a indicação) |
 | `/ingresso/[id]` | cliente | QR dinâmico que muda a cada 30 s e funciona offline |
 | `/cardapio/[casa]?mesa=12` | cliente | Cardápio digital: pedido vai direto para a comanda |

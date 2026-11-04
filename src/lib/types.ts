@@ -9,6 +9,7 @@ export interface Venue {
   lng: number;
   /** raio (m) usado para validar check-in de promoters por geolocalização */
   geofence_m: number;
+  address?: string;
 }
 
 export interface EventItem {
@@ -19,6 +20,11 @@ export interface EventItem {
   starts_at: string; // ISO
   capacity: number;
   cover_color: string;
+  /** flyer do evento (proporção 4:5). Em produção: Supabase Storage. */
+  cover_url?: string | null;
+  category?: "Festas" | "Shows" | "Barzinho";
+  description?: string | null;
+  min_age?: number;
 }
 
 export interface TicketType {

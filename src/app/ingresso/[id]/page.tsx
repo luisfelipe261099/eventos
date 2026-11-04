@@ -1,32 +1,57 @@
 import { notFound } from "next/navigation";
+import Image from "next/image";
 import { getTicketFull } from "@/lib/repo";
-import { fmtDate, fmtTime } from "@/lib/format";
-import { Page, Pill, TopBar } from "@/components/ui";
+import { brl } from "@/lib/format";
+import { ClientShell, Icon, longDate } from "@/components/client";
 import DynamicQR from "@/components/DynamicQR";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Meu ingresso" };
 
 export default async function TicketPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const t = await getTicketFull(id);
   if (!t || !t.event) notFound();
-  const { ticket, event, customer, ticketType } = t;
+  const { ticket, event, customer, ticketType, venue } = t;
+  const status = ticket.status === "used" ? { t: "Já utilizado", c: "bg-linha text-nevoa" } : ticket.status === "paid" ? { t: "Válido", c: "bg-[#e3f6ec] text-verde" } : { t: "Aguardando pagamento", c: "bg-[#fff1dc] text-[#9a5b00]" };
+
   return (
-    <Page>
-      <TopBar title="Meu ingresso" sub={event.name} back={`/e/${event.slug}`} />
-      <div className="card text-center">
-        <div className="text-sm text-mut">{fmtDate(event.starts_at)} · {fmtTime(event.starts_at)} · {ticketType?.name}</div>
-        {ticket.status === "pending" ? (
-          <p className="my-10 text-warn">Aguardando confirmação do pagamento…</p>
-        ) : (
-          <DynamicQR ticketId={ticket.id} seed={ticket.qr_seed} />
-        )}
-        <div className="mt-4 flex items-center justify-between rounded-xl bg-white/5 p-3 text-left">
-          <div><div className="font-semibold">{customer?.name}</div><div className="text-xs text-mut">{ticket.is_free ? "Cortesia VIP 🎁" : "Ingresso pago"}</div></div>
-          <Pill tone={ticket.status === "used" ? "mut" : ticket.status === "paid" ? "ok" : "warn"}>{ticket.status === "used" ? "Utilizado" : ticket.status === "paid" ? "Válido" : "Pendente"}</Pill>
+    <div className="min-h-dvh bg-breu">
+      <ClientShell back="/conta" bare>
+        <div className="mx-auto max-w-md px-5 pb-12 pt-4" style={{ ["--cut" as string]: "#000" }}>
+          <div className="stub overflow-hidden">
+            <div className="relative h-44">
+              {event.cover_url && <Image src={event.cover_url} alt="" fill sizes="448px" className="object-cover object-top" priority />}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
+              <div className="absolute inset-x-5 bottom-4 text-white">
+                <h1 className="poster text-[36px] uppercase">{event.name}</h1>
+              </div>
+            </div>
+            <div className="space-y-2 px-5 pb-4 pt-4 text-[15px]">
+              <p className="flex gap-2.5"><Icon name="calendar" size={18} className="mt-0.5 shrink-0 text-nevoa" />{longDate(event.starts_at)}</p>
+              <p className="flex gap-2.5"><Icon name="pin" size={18} className="mt-0.5 shrink-0 text-nevoa" />{venue?.name}</p>
+            </div>
+
+            <div className="stub-cut" aria-hidden><i /></div>
+
+            <div className="px-5 pb-6 pt-2">
+              {ticket.status === "pending" ? (
+                <p className="py-16 text-center text-nevoa">Assim que o Pix for confirmado, o QR code aparece aqui.</p>
+              ) : (
+                <DynamicQR ticketId={ticket.id} seed={ticket.qr_seed} />
+              )}
+              <div className="mt-6 flex items-end justify-between gap-3 border-t border-linha pt-4">
+                <div className="min-w-0">
+                  <div className="truncate font-semibold">{customer?.name}</div>
+                  <div className="text-sm text-nevoa">{ticketType?.name}{ticket.is_free ? " · cortesia" : ticket.price_cents ? ` · ${brl(ticket.price_cents)}` : ""}</div>
+                </div>
+                <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${status.c}`}>{status.t}</span>
+              </div>
+            </div>
+          </div>
+          <p className="mt-5 text-center text-sm leading-relaxed text-white/60">Mostre este código na entrada. Ele muda a cada 30 segundos, então print de tela não funciona. Depois de aberto uma vez, funciona sem internet.</p>
         </div>
-      </div>
-      <p className="mt-4 text-center text-xs text-mut">O código muda a cada 30 segundos. Print de tela não funciona na porta.<br />Funciona mesmo sem internet depois de aberto uma vez.</p>
-    </Page>
+      </ClientShell>
+    </div>
   );
 }

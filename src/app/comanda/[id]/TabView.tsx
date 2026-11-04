@@ -1,13 +1,13 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { brl, fmtTime } from "@/lib/format";
-import { Pill } from "@/components/ui";
 
 type Line = { id: string; name: string; qty: number; unit_price_cents: number; status: string; created_at: string };
 type TabData = { tab: { id: string; table_label: string; status: string }; lines: Line[]; subtotal: number; service: number; total: number };
 
-const STATUS: Record<string, { t: string; tone: "ok" | "warn" | "mut" | "brand" }> = {
-  queued: { t: "Na fila", tone: "mut" }, preparing: { t: "Preparando", tone: "warn" }, ready: { t: "Pronto!", tone: "brand" }, delivered: { t: "Entregue", tone: "ok" }, cancelled: { t: "Cancelado", tone: "mut" },
+const STATUS: Record<string, { t: string; c: string }> = {
+  queued: { t: "Na fila", c: "bg-linha text-nevoa" }, preparing: { t: "Preparando", c: "bg-[#fff1dc] text-[#9a5b00]" },
+  ready: { t: "Pronto para retirar", c: "bg-violeta text-white" }, delivered: { t: "Entregue", c: "bg-[#e3f6ec] text-verde" }, cancelled: { t: "Cancelado", c: "bg-linha text-nevoa" },
 };
 
 export default function TabView({ id }: { id: string }) {
@@ -19,7 +19,7 @@ export default function TabView({ id }: { id: string }) {
 
   const load = useCallback(async () => {
     const r = await fetch(`/api/tabs/${id}`, { cache: "no-store" });
-    if (!r.ok) return setErr("Comanda não encontrada");
+    if (!r.ok) return setErr("Comanda não encontrada. Ela pode ter sido fechada.");
     setData(await r.json());
   }, [id]);
   useEffect(() => { load(); const t = setInterval(load, 5000); return () => clearInterval(t); }, [load]);
@@ -28,44 +28,55 @@ export default function TabView({ id }: { id: string }) {
     setPaying(true);
     const j = await fetch(`/api/tabs/${id}/pay`, { method: "POST" }).then((r) => r.json());
     setPaying(false);
-    if (j.pix?.status === "approved" || j.status === "approved") { localStorage.removeItem("vf_tab"); load(); }
-    else setPix(j.pix);
+    if (j.pix?.status === "approved" || j.status === "approved") { localStorage.removeItem("vf_tab"); load(); } else setPix(j.pix);
   }
 
-  if (err) return <p className="text-bad">{err}</p>;
-  if (!data) return <p className="text-mut">Carregando…</p>;
+  if (err) return <p className="text-nevoa">{err}</p>;
+  if (!data) return <p className="text-nevoa">Carregando…</p>;
   const paid = data.tab.status === "paid";
   return (
-    <div className="space-y-3">
-      <div className="text-sm text-mut">{data.tab.table_label} · #{data.tab.id.slice(-4).toUpperCase()}</div>
-      {data.lines.map((l) => (
-        <div key={l.id} className="flex items-center gap-3 rounded-xl bg-white/5 p-3">
-          <div className="flex-1"><div className="font-semibold">{l.qty}x {l.name}</div><div className="text-xs text-mut">{fmtTime(l.created_at)} · {brl(l.qty * l.unit_price_cents)}</div></div>
-          <Pill tone={STATUS[l.status]?.tone}>{STATUS[l.status]?.t ?? l.status}</Pill>
+    <div className="pb-10">
+      <p className="text-sm text-nevoa">{data.tab.table_label} · comanda {data.tab.id.slice(-4).toUpperCase()}</p>
+      <h1 className="h-display text-[34px]">Minha comanda</h1>
+
+      <div className="stub mt-6 overflow-hidden">
+        <ul className="divide-y divide-linha px-5">
+          {data.lines.map((l) => (
+            <li key={l.id} className="flex items-center gap-3 py-3.5">
+              <div className="flex-1"><div className="font-semibold">{l.qty}× {l.name}</div><div className="text-sm text-nevoa">{fmtTime(l.created_at)} · {brl(l.qty * l.unit_price_cents)}</div></div>
+              <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS[l.status]?.c}`}>{STATUS[l.status]?.t ?? l.status}</span>
+            </li>
+          ))}
+        </ul>
+        <div className="stub-cut" aria-hidden><i /></div>
+        <div className="space-y-1.5 px-5 pb-5 text-[15px]">
+          <div className="flex justify-between text-nevoa"><span>Consumo</span><span>{brl(data.subtotal)}</span></div>
+          <div className="flex justify-between text-nevoa"><span>Serviço (10%)</span><span>{brl(data.service)}</span></div>
+          <div className="flex items-baseline justify-between pt-2"><span className="font-semibold">Total</span><span className="poster text-[34px]">{brl(data.total)}</span></div>
+          {people > 1 && <div className="flex justify-between font-medium text-violeta"><span>Para cada um ({people})</span><span>{brl(Math.ceil(data.total / people))}</span></div>}
         </div>
-      ))}
-      <div className="card space-y-1 text-sm">
-        <div className="flex justify-between text-mut"><span>Subtotal</span><span>{brl(data.subtotal)}</span></div>
-        <div className="flex justify-between text-mut"><span>Serviço (10%)</span><span>{brl(data.service)}</span></div>
-        <div className="flex justify-between pt-1 text-lg font-bold"><span>Total</span><span>{brl(data.total)}</span></div>
-        {people > 1 && <div className="flex justify-between text-brandl"><span>Por pessoa ({people})</span><span>{brl(Math.ceil(data.total / people))}</span></div>}
       </div>
+
       {paid ? (
-        <div className="card text-center font-bold text-ok">✓ Comanda paga. Obrigado!</div>
+        <p className="mt-6 rounded-2xl bg-[#e3f6ec] p-4 text-center font-semibold text-verde">Comanda paga. Boa festa!</p>
       ) : pix ? (
-        <div className="card text-center">
-          {pix.qrCodeBase64 && <img alt="Pix" className="mx-auto w-52 rounded-xl bg-white p-2" src={`data:image/png;base64,${pix.qrCodeBase64}`} />}
-          {pix.qrCode && <button className="btn-ghost mt-2 w-full text-xs" onClick={() => navigator.clipboard.writeText(pix.qrCode!)}>Copiar código Pix</button>}
+        <div className="sheet mt-6 p-6 text-center">
+          {pix.qrCodeBase64 && <img alt="QR code do Pix" className="mx-auto w-52" src={`data:image/png;base64,${pix.qrCodeBase64}`} />}
+          {pix.qrCode && <button className="btn-line mt-3 w-full" onClick={() => navigator.clipboard.writeText(pix.qrCode!)}>Copiar código Pix</button>}
         </div>
       ) : (
-        <>
-          <button className="btn w-full" onClick={pay} disabled={paying || data.total === 0}>{paying ? "Gerando Pix…" : `Pagar com Pix · ${brl(data.total)}`}</button>
-          <div className="flex items-center justify-between rounded-xl border border-line p-2 text-sm">
-            <span className="pl-2 text-mut">Dividir conta</span>
-            <div className="flex items-center gap-2"><button className="h-8 w-8 rounded-lg bg-white/10" onClick={() => setPeople(Math.max(1, people - 1))}>–</button><b>{people}</b><button className="h-8 w-8 rounded-lg bg-white/10" onClick={() => setPeople(people + 1)}>+</button></div>
+        <div className="mt-6 space-y-3">
+          <div className="flex items-center justify-between rounded-full border border-linha bg-white py-1.5 pl-5 pr-1.5">
+            <span className="text-[15px]">Dividir a conta</span>
+            <div className="flex items-center gap-1">
+              <button className="h-9 w-9 rounded-full bg-papel text-lg" aria-label="Menos pessoas" onClick={() => setPeople(Math.max(1, people - 1))}>–</button>
+              <span className="w-8 text-center font-semibold">{people}</span>
+              <button className="h-9 w-9 rounded-full bg-papel text-lg" aria-label="Mais pessoas" onClick={() => setPeople(people + 1)}>+</button>
+            </div>
           </div>
-          <button onClick={() => history.back()} className="block w-full text-center text-sm text-brandl">+ Pedir mais</button>
-        </>
+          <button className="btn-primary w-full" onClick={pay} disabled={paying || data.total === 0}>{paying ? "Gerando Pix…" : `Pagar ${brl(data.total)} com Pix`}</button>
+          <button onClick={() => history.back()} className="btn-line w-full">Pedir mais</button>
+        </div>
       )}
     </div>
   );

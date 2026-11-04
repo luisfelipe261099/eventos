@@ -1,10 +1,15 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { getEventBySlug, getTicketTypes } from "@/lib/repo";
-import { fmtDate, fmtTime } from "@/lib/format";
-import { Page, TopBar } from "@/components/ui";
+import { ClientShell, Flyer, Icon, longDate } from "@/components/client";
 import BuyForm from "./BuyForm";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const ev = await getEventBySlug((await params).slug);
+  return ev ? { title: ev.name, openGraph: { images: ev.cover_url ? [ev.cover_url] : [] } } : {};
+}
 
 export default async function EventPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ ref?: string }> }) {
   const { slug } = await params;
@@ -12,16 +17,27 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   const ev = await getEventBySlug(slug);
   if (!ev) notFound();
   const types = (await getTicketTypes(ev.id)).sort((a, b) => a.price_cents - b.price_cents);
+
   return (
-    <Page>
-      <TopBar title="Ingressos" sub="Evento" back="/" />
-      <div className="overflow-hidden rounded-2xl border border-line">
-        <div className="flex h-40 flex-col justify-end p-4" style={{ background: "radial-gradient(circle at 25% 30%, #c46bff, transparent 55%), radial-gradient(circle at 85% 80%, #3b5bff, transparent 50%), #1a0f3a" }}>
-          <span className="text-xs font-bold tracking-widest text-[#f3d9ff]">{fmtDate(ev.starts_at).toUpperCase()} · {fmtTime(ev.starts_at)}</span>
-          <h2 className="h-display text-3xl">{ev.name}</h2>
+    <ClientShell back="/" bare>
+      <div className="bg-breu">
+        <div className="mx-auto max-w-md">
+          <Flyer src={ev.cover_url} alt={ev.name} sizes="448px" priority />
         </div>
       </div>
-      <BuyForm eventId={ev.id} types={types} referral={ref ?? null} />
-    </Page>
+      <div className="relative z-10 mx-auto -mt-7 max-w-md">
+        <div className="rounded-t-[28px] bg-papel px-5 pb-28 pt-7">
+          <h1 className="poster text-[44px] uppercase">{ev.name}</h1>
+          <dl className="mt-5 space-y-3 text-[15px]">
+            <div className="flex gap-3"><Icon name="calendar" className="mt-0.5 shrink-0 text-nevoa" /><dd>{longDate(ev.starts_at)}</dd></div>
+            <div className="flex gap-3"><Icon name="pin" className="mt-0.5 shrink-0 text-nevoa" /><dd><b className="font-semibold">{ev.venue?.name}</b><br /><span className="text-nevoa">{ev.venue?.address}</span></dd></div>
+            <div className="flex gap-3"><Icon name="id" className="mt-0.5 shrink-0 text-nevoa" /><dd>Proibido para menores de {ev.min_age ?? 18} anos. Leve documento com foto.</dd></div>
+          </dl>
+          {ev.description && <p className="mt-5 leading-relaxed text-tinta/85">{ev.description}</p>}
+          <h2 className="h-display mt-9 text-[26px]">Ingressos</h2>
+          <BuyForm eventId={ev.id} types={types} referral={ref ?? null} />
+        </div>
+      </div>
+    </ClientShell>
   );
 }
