@@ -36,10 +36,11 @@ const LAST = ["Souza", "Lima", "Dias", "Reis", "Prado", "Mota", "Alves", "Costa"
 
 export function nextFriday(from = new Date()): Date {
   const d = new Date(from);
-  const add = (5 - d.getDay() + 7) % 7;
-  d.setDate(d.getDate() + add);
-  d.setHours(23, 0, 0, 0);
-  return d;
+  // calcula no fuso de Brasília (UTC-3), independente do fuso do servidor
+  const br = new Date(d.getTime() - 3 * 36e5);
+  const add = (5 - br.getUTCDay() + 7) % 7;
+  br.setUTCDate(br.getUTCDate() + add);
+  return new Date(Date.UTC(br.getUTCFullYear(), br.getUTCMonth(), br.getUTCDate(), 23 + 3));
 }
 
 export function buildDemoData(): DemoData {
@@ -143,7 +144,7 @@ export function buildDemoData(): DemoData {
   }
 
   // próximos eventos da vitrine (outras casas e datas)
-  const at = (days: number, hour: number) => { const d = new Date(upcoming); d.setDate(d.getDate() + days); d.setHours(hour, 0, 0, 0); return d.toISOString(); };
+  const at = (days: number, hour: number) => { const d = new Date(upcoming.getTime() - 3 * 36e5); d.setUTCDate(d.getUTCDate() + days); return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), hour + 3)).toISOString(); };
   const extra: [string, string, string, string, number, number, EventItem["category"], string, number, number][] = [
     ["baile-neon", "Baile Neon", "venue-2", "/posters/baile-neon.jpg", 1, 23, "Festas", "DJ Kalu, MC Vitória e um B2B surpresa. Pista única, som de galpão.", 5000, 12000],
     ["samba-no-quintal", "Samba no Quintal", "venue-3", "/posters/samba-no-quintal.jpg", 2, 16, "Shows", "Roda de samba ao ar livre com feijoada até as 19h.", 4000, 9000],
