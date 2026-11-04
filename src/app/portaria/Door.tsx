@@ -33,6 +33,8 @@ export default function Door() {
   };
 
   useEffect(() => {
+    const code = new URLSearchParams(location.search).get("code");
+    if (code) { download().then(() => validate(code)); }
     const m = localStorage.getItem(K_MAN); if (m) { const mm = JSON.parse(m); setManifest(mm); hydrate(mm); }
     setQueue(JSON.parse(localStorage.getItem(K_QUEUE) ?? "[]"));
     const up = () => setOnline(navigator.onLine); up();
@@ -45,6 +47,17 @@ export default function Door() {
     if (!r.ok) return setResult({ ok: false, title: "Falha ao baixar lista", sub: (await r.json()).error ?? "", ms: 0 });
     const m: Manifest = await r.json();
     localStorage.setItem(K_MAN, JSON.stringify(m)); setManifest(m); hydrate(m);
+    // mantém a fila local de quem já entrou por este aparelho
+    const local: string[] = JSON.parse(localStorage.getItem(K_USED) ?? "[]");
+    local.forEach((id) => used.current.add(id));
+  }
+
+  async function flush() {
+    const q: Pending[] = JSON.parse(localStorage.getItem(K_QUEUE) ?? "[]");
+    const m: Manifest | null = JSON.parse(localStorage.getItem(K_MAN) ?? "null");
+    if (!q.length || !m) return;
+    const r = await fetch("/api/door/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventId: m.eventId, items: q }) });
+    if (r.ok) { localStorage.setItem(K_QUEUE, "[]"); setQueue([]); }
   }
 
   const sync = useCallback(async () => {
@@ -71,6 +84,7 @@ export default function Door() {
     localStorage.setItem(K_QUEUE, JSON.stringify(q)); setQueue(q);
     setResult({ ok: true, title: "Acesso liberado", sub: holders.current.get(check.ticketId) ?? "", ms });
     navigator.vibrate?.(120);
+    if (navigator.onLine) flush();
   }
 
   async function toggleScan() {

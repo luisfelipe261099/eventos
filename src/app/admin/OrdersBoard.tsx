@@ -10,7 +10,7 @@ const COLS: { k: O["status"]; t: string; next: string }[] = [
 export default function OrdersBoard() {
   const [orders, setOrders] = useState<O[]>([]);
   const load = useCallback(async () => { const r = await fetch("/api/orders", { cache: "no-store" }); if (r.ok) setOrders((await r.json()).orders); }, []);
-  useEffect(() => { load(); const t = setInterval(load, 5000); return () => clearInterval(t); }, [load]);
+  useEffect(() => { load(); const t = setInterval(load, 3000); return () => clearInterval(t); }, [load]);
   async function advance(o: O) {
     setOrders((x) => x.filter((y) => y.id !== o.id || o.status !== "ready").map((y) => y.id === o.id ? { ...y, status: o.status === "queued" ? "preparing" : "ready" } : y));
     await fetch("/api/orders", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: o.id, current: o.status }) });

@@ -2,6 +2,8 @@
 
 Plataforma para casas de eventos e bares: ingressos com **QR dinâmico**, **portaria que funciona sem internet**, **cardápio digital e comandas**, **app do promoter com geolocalização** e **painel com IA** (clientes VIP, produtos parados, previsão de público e campanhas).
 
+> **Simulador:** abra `/simular` para ver uma noite completa com três celulares lado a lado (cliente, equipe e dono): compra, portaria, cardápio, bar, Pix e IA. No modo demo, as ações de cada visitante ficam salvas num cookie do navegador, comprimido, e são reaplicadas sobre os dados de exemplo. Por isso a simulação funciona na Vercel mesmo com servidores trocando, sem banco de dados.
+
 > **Modo demo:** sem nenhuma variável de ambiente o app já roda com dados fictícios (12 sextas de histórico, o cliente "Rafael M." que gasta ~R$ 5 mil toda sexta, a caipirinha de kiwi parada etc.). Dá para subir na Vercel e apresentar no mesmo dia.
 
 ---
@@ -87,6 +89,8 @@ Para o Pix, cadastre no Mercado Pago a URL de webhook `https://SEU_APP/api/payme
 | `/ingresso/[id]` | cliente | QR dinâmico que muda a cada 30 s e funciona offline |
 | `/cardapio/[casa]?mesa=12` | cliente | Cardápio digital: pedido vai direto para a comanda |
 | `/comanda/[id]` | cliente | Status dos pedidos, total, Pix e divisão da conta |
+| `/simular` | apresentação | Simulador da noite completa com 3 celulares |
+| `/bar` | equipe | Tela do bar: pedidos em tempo real |
 | `/promoter` | promoter | Lista VIP, validação por GPS, link de venda e comissão |
 | `/portaria` | equipe | Leitor de QR; valida **sem internet** e sincroniza depois |
 | `/admin` | dono | Ao vivo, comandas, IA de clientes, IA do bar, previsão e marketing |

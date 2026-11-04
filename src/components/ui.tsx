@@ -27,7 +27,7 @@ export function DemoBanner({ show }: { show: boolean }) {
   if (!show) return null;
   return (
     <div className="mb-4 rounded-xl border border-warn/40 bg-warn/10 px-3 py-2 text-xs text-warn">
-      Modo demo: dados fictícios em memória. Configure o Supabase para usar dados reais.
+      Modo demo: dados fictícios, e suas ações ficam salvas só neste navegador. Configure o Supabase para usar dados reais.
     </div>
   );
 }

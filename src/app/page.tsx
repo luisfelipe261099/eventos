@@ -31,7 +31,15 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ c
       </nav>
 
       {!isSupabaseConfigured() && (
-        <p className="mx-auto max-w-5xl px-4 pt-3 text-xs text-nevoa">Versão de demonstração com eventos fictícios.</p>
+        <div className="mx-auto max-w-5xl px-4 pt-4">
+          <Link href="/simular" className="flex items-center gap-4 rounded-2xl bg-breu p-4 text-white">
+            <div className="flex-1">
+              <div className="font-semibold">Simule uma noite completa</div>
+              <div className="text-sm text-white/65">Compra, portaria, cardápio, bar, Pix e IA funcionando juntos. Eventos fictícios.</div>
+            </div>
+            <span className="rounded-full bg-violeta px-4 py-2 text-sm font-semibold">Abrir</span>
+          </Link>
+        </div>
       )}
 
       {featured.length > 0 && (

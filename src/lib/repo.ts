@@ -1,11 +1,11 @@
 /** Regras de negócio da VipFlow. Fala só com db() — funciona em demo e no Supabase. */
-import { db, uid } from "./db";
+import { db, isSupabaseConfigured, uid } from "./db";
 import type { Checkin, Customer, EventItem, GuestListEntry, Invite, OrderItem, Product, Promoter, Tab, Ticket, TicketType, Venue } from "./types";
 import type { Dataset } from "./insights";
 import { insideGeofence } from "./geo";
 
 const randomSeed = () => {
-  const b = new Uint8Array(24); crypto.getRandomValues(b);
+  const b = new Uint8Array(isSupabaseConfigured() ? 24 : 10); crypto.getRandomValues(b);
   return Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
 };
 

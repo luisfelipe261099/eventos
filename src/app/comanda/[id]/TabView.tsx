@@ -22,7 +22,7 @@ export default function TabView({ id }: { id: string }) {
     if (!r.ok) return setErr("Comanda não encontrada. Ela pode ter sido fechada.");
     setData(await r.json());
   }, [id]);
-  useEffect(() => { load(); const t = setInterval(load, 5000); return () => clearInterval(t); }, [load]);
+  useEffect(() => { load(); const t = setInterval(load, 3000); return () => clearInterval(t); }, [load]);
 
   async function pay() {
     setPaying(true);

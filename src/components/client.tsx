@@ -69,7 +69,9 @@ export function Footer() {
         <div>
           <h3 className="text-sm font-semibold">Para casas e produtores</h3>
           <ul className="mt-3 space-y-2 text-sm text-white/60">
+            <li><Link className="hover:text-white" href="/simular">Simulador</Link></li>
             <li><Link className="hover:text-white" href="/admin">Painel da casa</Link></li>
+            <li><Link className="hover:text-white" href="/bar">Tela do bar</Link></li>
             <li><Link className="hover:text-white" href="/portaria">Portaria</Link></li>
             <li><Link className="hover:text-white" href="/promoter">App do promoter</Link></li>
           </ul>
