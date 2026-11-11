@@ -169,19 +169,21 @@ export async function releaseStalePending(maxAgeMs = 2 * 36e5) {
 /** Aplica um pagamento confirmado pela referência externa (ticket:ID ou tab:ID). */
 /**
  * Só aplica se a cobrança for a que o próprio app gerou para aquele ingresso ou
- * comanda: uma casa não consegue quitar o ingresso de outra apontando a referência.
+ * comanda E se ele for da casa dona do webhook: uma casa não consegue quitar o
+ * ingresso de outra apontando a referência.
  */
-export async function applyPaymentRef(externalRef: string | null | undefined, paymentId: string) {
+export async function applyPaymentRef(externalRef: string | null | undefined, paymentId: string, venueId: string) {
   if (!externalRef) return null;
   const [kind, ref] = externalRef.split(":");
+  const mine = async (eventId: string) => (await db().get<EventItem>("events", eventId))?.venue_id === venueId;
   if (kind === "ticket") {
     const t = await db().get<Ticket>("tickets", ref);
-    if (!t || t.payment_id !== paymentId) return null;
+    if (!t || t.payment_id !== paymentId || !(await mine(t.event_id))) return null;
     await markTicketPaid(ref); return "ticket";
   }
   if (kind === "tab") {
     const t = await db().get<Tab>("tabs", ref);
-    if (!t || t.payment_id !== paymentId) return null;
+    if (!t || t.payment_id !== paymentId || !(await mine(t.event_id))) return null;
     await db().update<Tab>("tabs", ref, { status: "paid" }); return "tab";
   }
   return null;

@@ -9,7 +9,8 @@ import { applyPaymentRef, payMode } from "@/lib/repo";
  * Idempotente: o Asaas pode reenviar o mesmo evento.
  */
 export async function POST(req: Request) {
-  const mode = await payMode(new URL(req.url).searchParams.get("v"));
+  const venueId = new URL(req.url).searchParams.get("v") ?? "";
+  const mode = await payMode(venueId);
   if (mode.kind !== "asaas") return NextResponse.json({ ignored: true });
   const token = req.headers.get("asaas-access-token");
   if (!token || token !== (await webhookToken(mode.cfg))) return NextResponse.json({ error: "token inválido" }, { status: 401 });
@@ -19,7 +20,7 @@ export async function POST(req: Request) {
   if (!paymentId) return NextResponse.json({ received: true });
   try {
     const p = await getPayment(mode.cfg, paymentId);
-    if (isPaidStatus(p.status, p.billingType)) await applyPaymentRef(p.externalReference, p.id);
+    if (isPaidStatus(p.status, p.billingType)) await applyPaymentRef(p.externalReference, p.id, venueId);
   } catch (e) {
     console.error("[webhook asaas]", e);
     return NextResponse.json({ error: "falha temporária" }, { status: 500 }); // o Asaas tenta de novo
