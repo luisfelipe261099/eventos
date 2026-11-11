@@ -13,12 +13,12 @@ export const GET = handle(async (req: Request) => {
   const file = (name: string, content: string, mime = "text/csv; charset=utf-8") =>
     new Response(content, { headers: { "Content-Type": mime, "Content-Disposition": `attachment; filename="vipflow-${name}-${day}.${mime.startsWith("text/csv") ? "csv" : "json"}"` } });
 
-  if (type === "resumo") return file("resumo", toCsv(["Evento", "Data", "Ingressos vendidos", "Receita ingressos", "Estornos", "Entraram", "Bar pago", "Bar em aberto", "Comissões"],
-    rows.map((r) => [r.event.name, dt(r.event.starts_at), r.ticketsSold, money(r.ticketRevenue), money(r.refunded), r.inside, money(r.barPaid), money(r.barOpen), money(r.commission)])));
+  if (type === "resumo") return file("resumo", toCsv(["Evento", "Data", "Ingressos vendidos", "Receita ingressos", "Estornos", "Entraram", "Bar pago", "Bar em aberto", "Comissões", "Taxa VipFlow"],
+    rows.map((r) => [r.event.name, dt(r.event.starts_at), r.ticketsSold, money(r.ticketRevenue), money(r.refunded), r.inside, money(r.barPaid), money(r.barOpen), money(r.commission), money(r.fees)])));
   if (type === "ingressos") {
     const cust = new Map(raw.customers.map((c) => [c.id, c])); const ev = new Map(raw.events.map((e) => [e.id, e.name])); const tt = new Map(raw.types.map((t) => [t.id, t.name]));
-    return file("ingressos", toCsv(["Data da compra", "Evento", "Lote", "Cliente", "WhatsApp", "Valor", "Situação", "Cobrança Asaas"],
-      raw.tickets.map((t) => [dt(t.created_at), ev.get(t.event_id), tt.get(t.ticket_type_id), cust.get(t.customer_id)?.name, cust.get(t.customer_id)?.phone, money(t.price_cents), t.status, t.payment_id ?? ""])));
+    return file("ingressos", toCsv(["Data da compra", "Evento", "Lote", "Cliente", "WhatsApp", "Valor", "Taxa VipFlow", "Situação", "Cobrança Asaas"],
+      raw.tickets.map((t) => [dt(t.created_at), ev.get(t.event_id), tt.get(t.ticket_type_id), cust.get(t.customer_id)?.name, cust.get(t.customer_id)?.phone, money(t.price_cents), money(t.fee_cents ?? 0), t.status, t.payment_id ?? ""])));
   }
   if (type === "consumo") {
     const prod = new Map(raw.products.map((p) => [p.id, p.name])); const tab = new Map(raw.tabs.map((t) => [t.id, t])); const ev = new Map(raw.events.map((e) => [e.id, e.name]));

@@ -1,6 +1,6 @@
 import { body, fail, guardAdmin, handle, ok } from "@/lib/http";
 import { db } from "@/lib/db";
-import { releaseTicket } from "@/lib/repo";
+import { ownedEvent, payMode, releaseTicket } from "@/lib/repo";
 import { refundPayment, PaymentError } from "@/lib/payments";
 import type { Ticket, TicketType } from "@/lib/types";
 
@@ -9,7 +9,8 @@ export const POST = handle(async (req: Request) => {
   const denied = await guardAdmin(); if (denied) return denied;
   const { id, action } = await body<{ id: string; action: "cancel" | "refund" }>(req);
   const t = await db().get<Ticket>("tickets", id);
-  if (!t) return fail("Ingresso não encontrado.", 404);
+  const ev = t ? await ownedEvent(t.event_id) : null;
+  if (!t || !ev) return fail("Ingresso não encontrado.", 404);
   if (action === "cancel") {
     if (t.status !== "pending") return fail("Só é possível cancelar ingressos aguardando pagamento.");
     await releaseTicket(id);
@@ -19,7 +20,7 @@ export const POST = handle(async (req: Request) => {
     if (t.status === "used") return fail("Este ingresso já foi usado na entrada e não pode ser estornado.");
     if (t.status !== "paid") return fail("Só é possível estornar ingressos pagos.");
     try {
-      if (t.price_cents > 0 && t.payment_id) await refundPayment(t.payment_id);
+      if (t.price_cents > 0 && t.payment_id) { const mode = await payMode(ev.venue_id); await refundPayment(mode.kind === "asaas" ? mode.cfg : null, t.payment_id); }
     } catch (e) {
       if (e instanceof PaymentError) return fail(`O Asaas recusou o estorno: ${e.message}`, 502);
       throw e;

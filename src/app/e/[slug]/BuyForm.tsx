@@ -6,7 +6,9 @@ import { brl, isValidCpf, maskCpf } from "@/lib/format";
 
 type Pix = { status: string; qrCode?: string; qrCodeBase64?: string; expiresAt?: string };
 
-export default function BuyForm({ eventId, types, referral, requireCpf }: { eventId: string; types: TicketType[]; referral: string | null; requireCpf: boolean }) {
+type Lot = TicketType & { total_cents: number };
+
+export default function BuyForm({ eventId, types, referral, requireCpf, online }: { eventId: string; types: Lot[]; referral: string | null; requireCpf: boolean; online: boolean }) {
   const router = useRouter();
   const [sel, setSel] = useState(types.find((t) => t.sold < t.quantity)?.id ?? "");
   const [name, setName] = useState("");
@@ -19,6 +21,8 @@ export default function BuyForm({ eventId, types, referral, requireCpf }: { even
   const chosen = types.find((t) => t.id === sel);
   const needCpf = requireCpf && (chosen?.price_cents ?? 0) > 0;
   const cpfOk = !needCpf || isValidCpf(cpf);
+  const fee = chosen ? chosen.total_cents - chosen.price_cents : 0;
+  const blocked = !online && (chosen?.price_cents ?? 0) > 0;
 
   useEffect(() => {
     const saved = localStorage.getItem("vf_profile");
@@ -90,13 +94,14 @@ export default function BuyForm({ eventId, types, referral, requireCpf }: { even
           </label>
         )}
         <p className="text-xs text-nevoa">O ingresso fica no seu celular. Ao comprar, você concorda com os <a href="/termos" className="underline">termos</a>, a <a href="/privacidade" className="underline">privacidade</a> e a <a href="/cancelamento" className="underline">política de cancelamento</a>.</p>
+        {blocked && <p className="text-sm font-medium text-[#c22a3a]">Esta casa ainda não ativou a venda online. Compre direto com a casa.</p>}
         {err && <p role="alert" className="text-sm font-medium text-[#c22a3a]">{err}</p>}
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-linha bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-md items-center gap-4 px-5 py-3 pb-[max(12px,env(safe-area-inset-bottom))]">
-          <div className="flex-1"><div className="text-xs text-nevoa">{chosen?.name ?? "Escolha um ingresso"}</div><div className="poster text-[26px]">{chosen ? brl(chosen.price_cents) : "—"}</div></div>
-          <button className="btn-primary" disabled={!chosen || loading || !name.trim() || !phone.trim() || !cpfOk} onClick={buy}>{loading ? "Processando…" : "Comprar com Pix"}</button>
+          <div className="flex-1"><div className="text-xs text-nevoa">{chosen ? (fee > 0 ? `${chosen.name} · ${brl(chosen.price_cents)} + ${brl(fee)} de taxa` : chosen.name) : "Escolha um ingresso"}</div><div className="poster text-[26px]">{chosen ? brl(chosen.total_cents) : "—"}</div></div>
+          <button className="btn-primary" disabled={!chosen || loading || blocked || !name.trim() || !phone.trim() || !cpfOk} onClick={buy}>{loading ? "Processando…" : blocked ? "Venda na casa" : chosen?.price_cents === 0 ? "Pegar ingresso" : "Comprar com Pix"}</button>
         </div>
       </div>
     </div>

@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getEventBySlug, getTicketTypes } from "@/lib/repo";
+import { getEventBySlug, getTicketTypes, payMode, venueFeeMode, venuePlan } from "@/lib/repo";
+import { ticketTotals } from "@/lib/plans";
 import { ClientShell, Flyer, Icon, longDate } from "@/components/client";
 import BuyForm from "./BuyForm";
-import { paymentsEnabled } from "@/lib/payments";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +17,10 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   const { ref } = await searchParams;
   const ev = await getEventBySlug(slug);
   if (!ev) notFound();
-  const types = (await getTicketTypes(ev.id)).sort((a, b) => a.price_cents - b.price_cents);
+  const mode = await payMode(ev.venue_id);
+  // taxa de serviço de cada lote, quando a casa repassa ao comprador
+  const types = (await getTicketTypes(ev.id)).sort((a, b) => a.price_cents - b.price_cents)
+    .map((t) => ({ ...t, total_cents: ticketTotals(t.price_cents, venuePlan(ev.venue), venueFeeMode(ev.venue)).buyerCents }));
 
   return (
     <ClientShell back="/" bare>
@@ -36,7 +39,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
           </dl>
           {ev.description && <p className="mt-5 leading-relaxed text-tinta/85">{ev.description}</p>}
           <h2 className="h-display mt-9 text-[26px]">Ingressos</h2>
-          <BuyForm eventId={ev.id} types={types} referral={ref ?? null} requireCpf={paymentsEnabled()} />
+          <BuyForm eventId={ev.id} types={types} referral={ref ?? null} requireCpf={mode.kind === "asaas"} online={mode.kind !== "off" && ev.venue?.plan_status !== "blocked"} />
         </div>
       </div>
     </ClientShell>

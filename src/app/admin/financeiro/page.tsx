@@ -8,17 +8,18 @@ export const metadata = { title: "Financeiro" };
 
 export default async function Financeiro() {
   const { rows, byPromoter } = await financeReport();
-  const sum = (k: "ticketRevenue" | "barPaid" | "commission" | "refunded") => rows.reduce((s, r) => s + r[k], 0);
+  const sum = (k: "ticketRevenue" | "barPaid" | "commission" | "refunded" | "fees") => rows.reduce((s, r) => s + r[k], 0);
   const exp = [["resumo", "Resumo por evento"], ["ingressos", "Ingressos"], ["consumo", "Consumo do bar"], ["comissoes", "Comissões"], ["backup", "Backup completo (JSON)"]];
   return (
     <Page wide>
       <TopBar title="Financeiro" sub="Vendas, bar, comissões e exportação" back="/" />
       <AdminNav active="/admin/financeiro" />
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <Stat label="Ingressos (total)" value={brl(sum("ticketRevenue"))} />
         <Stat label="Bar pago (total)" value={brl(sum("barPaid"))} tone="ok" />
         <Stat label="Comissões de promoters" value={brl(sum("commission"))} />
         <Stat label="Estornos" value={brl(sum("refunded"))} />
+        <Stat label="Taxa VipFlow (ingressos)" value={brl(sum("fees"))} />
       </div>
       <div className="card mt-4 flex flex-wrap items-center gap-2">
         <span className="mr-2 text-sm text-mut">Baixar planilha:</span>

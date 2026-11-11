@@ -3,6 +3,8 @@ import { db, hasSupabaseStorage, isSupabaseConfigured, uid } from "./db";
 import type { EventItem, Product, Promoter, TicketType, Venue } from "./types";
 import { getVenueOrNull } from "./repo";
 
+const DENIED = "Este registro é de outra casa.";
+
 export const slugify = (s: string) =>
   s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
 
@@ -16,14 +18,28 @@ const int = (v: unknown, min = 0) => Math.max(min, Math.round(Number(v) || 0));
 
 export async function saveVenue(input: Partial<Venue> & { name: string }) {
   const existing = await getVenueOrNull();
+  if (!existing && isSupabaseConfigured()) {
+    // casa nova só nasce pelo cadastro (/cadastro) ou pela VipFlow na primeira configuração
+    const { isRoot } = await import("./admin-auth");
+    if (!(await isRoot())) throw new Error("Faça login para editar a casa.");
+  }
+  const feeMode = input.fee_mode === "venue" || input.fee_mode === "buyer" ? { fee_mode: input.fee_mode } : {};
   const row = {
     name: input.name.trim(), city: (input.city ?? "").trim(), address: (input.address ?? "").trim(),
-    lat: Number(input.lat) || 0, lng: Number(input.lng) || 0, geofence_m: int(input.geofence_m, 20) || 80,
+    lat: Number(input.lat) || 0, lng: Number(input.lng) || 0, geofence_m: int(input.geofence_m, 20) || 80, ...feeMode,
   };
   if (existing) return db().update<Venue>("venues", existing.id, row);
-  const slug = slugify(input.slug || input.name) || "minha-casa";
-  const [v] = await db().insert<Venue>("venues", { id: uid(), slug, ...row });
+  const [v] = await db().insert<Venue>("venues", { id: uid(), slug: await freeVenueSlug(input.slug || input.name), ...row });
   return v;
+}
+
+/** Slug livre para uma casa nova (o slug vira o link do cardápio). */
+export async function freeVenueSlug(name: string) {
+  const base = slugify(name) || "minha-casa";
+  const taken = new Set((await db().select<Venue>("venues")).map((v) => v.slug));
+  let slug = base;
+  for (let i = 2; taken.has(slug); i++) slug = `${base}-${i}`;
+  return slug;
 }
 
 export interface EventInput {
@@ -44,8 +60,10 @@ export async function saveEvent(input: EventInput) {
   };
   let ev: EventItem | null;
   if (input.id) {
+    const cur = await db().get<EventItem>("events", input.id);
+    if (!cur) throw new Error("Evento não encontrado.");
+    if (cur.venue_id !== venue.id) throw new Error(DENIED);
     ev = await db().update<EventItem>("events", input.id, fields);
-    if (!ev) throw new Error("Evento não encontrado.");
   } else {
     const all = await db().select<EventItem>("events");
     let slug = `${slugify(input.name)}-${starts_local_ddmm(input.starts_local)}`;
@@ -74,7 +92,11 @@ export async function saveProduct(input: Partial<Product> & { name: string }) {
     name: input.name.trim(), category: input.category ?? "Drinks", price_cents: int(input.price_cents), cost_cents: int(input.cost_cents),
     stock: int(input.stock), active: input.active ?? true,
   };
-  if (input.id) return db().update<Product>("products", input.id, data);
+  if (input.id) {
+    const cur = await db().get<Product>("products", input.id);
+    if (!cur || cur.venue_id !== venue.id) throw new Error(DENIED);
+    return db().update<Product>("products", input.id, data);
+  }
   const [p] = await db().insert<Product>("products", { id: uid(), venue_id: venue.id, promo_price_cents: null, promo_until: null, ...data });
   return p;
 }
@@ -82,8 +104,14 @@ export async function saveProduct(input: Partial<Product> & { name: string }) {
 export async function savePromoter(input: Partial<Promoter> & { name: string }) {
   if (!input.name?.trim()) throw new Error("Informe o nome do promoter.");
   const data = { name: input.name.trim(), phone: (input.phone ?? "").trim(), commission_cents: int(input.commission_cents), active: input.active ?? true };
-  if (input.id) return db().update<Promoter>("promoters", input.id, data);
-  const [p] = await db().insert<Promoter>("promoters", { id: uid(), access_code: isSupabaseConfigured() ? code() : undefined, ...data });
+  const venue = await getVenueOrNull();
+  if (!venue) throw new Error("Cadastre a casa primeiro.");
+  if (input.id) {
+    const cur = await db().get<Promoter>("promoters", input.id);
+    if (!cur || (cur.venue_id ?? venue.id) !== venue.id) throw new Error(DENIED);
+    return db().update<Promoter>("promoters", input.id, data);
+  }
+  const [p] = await db().insert<Promoter>("promoters", { id: uid(), venue_id: venue.id, access_code: isSupabaseConfigured() ? code() : undefined, ...data });
   if (!p.access_code) await db().update<Promoter>("promoters", p.id, { access_code: p.id });
   return p;
 }

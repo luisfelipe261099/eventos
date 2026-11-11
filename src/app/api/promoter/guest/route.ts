@@ -6,7 +6,7 @@ export const POST = handle(async (req: Request) => {
   const p = await promoterByCode(b.k);
   if (!p) return fail("Link de promoter inválido.", 403);
   if (!b.name?.trim() || !b.phone?.trim()) return fail("Preencha nome e WhatsApp do convidado.");
-  const ev = await currentEvent();
+  const ev = p.venue_id ? await currentEvent(p.venue_id) : null;
   if (!ev) return fail("Nenhum evento agendado no momento.", 404);
   return ok(await addGuest(p.id, ev.id, b.name.trim(), b.phone.trim()));
 });

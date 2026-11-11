@@ -9,14 +9,15 @@ import { WEEKDAYS } from "./format";
  * gera um ingresso free, escreve um convite personalizado e envia.
  * Roda todo dia pelo Vercel Cron (14h) ou manualmente pelo painel.
  */
-export async function runVipInvites(opts: { now?: number; force?: boolean } = {}) {
+/** `venueId` vem do cron (todas as casas). Sem ele, vale a casa da sessão do painel. */
+export async function runVipInvites(opts: { now?: number; force?: boolean; venueId?: string } = {}) {
   const now = opts.now ?? Date.now();
-  const ev = await currentEvent();
+  const ev = await currentEvent(opts.venueId);
   if (!ev) return { event: null, invited: [] };
-  const ds = await loadDataset();
+  const ds = await loadDataset(ev.venue_id);
   const profiles = customerProfiles(ds, now);
   const targets = opts.force ? profiles.filter((p) => p.segment === "vip" || p.segment === "potencial") : invitesForToday(profiles, now);
-  const already = new Set((await listInvites()).filter((i) => i.event_id === ev.id).map((i) => i.customer_id));
+  const already = new Set((await listInvites(ev.id)).map((i) => i.customer_id));
   const types = await getTicketTypes(ev.id);
   const type = types.find((t) => /camarote|vip/i.test(t.name)) ?? types[0];
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";

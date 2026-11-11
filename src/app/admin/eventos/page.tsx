@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { db } from "@/lib/db";
-import { listEvents } from "@/lib/repo";
+import { getVenueOrNull, listEvents } from "@/lib/repo";
 import type { Checkin, TicketType } from "@/lib/types";
 import { brl, fmtDate, fmtTime } from "@/lib/format";
 import { Page, Pill, TopBar } from "@/components/ui";
@@ -11,7 +11,8 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Eventos" };
 
 export default async function EventosAdmin() {
-  const [events, types, checkins] = await Promise.all([listEvents(), db().select<TicketType>("ticket_types"), db().select<Checkin>("checkins")]);
+  const venue = await getVenueOrNull();
+  const [events, types, checkins] = await Promise.all([venue ? listEvents(venue.id) : [], db().select<TicketType>("ticket_types"), db().select<Checkin>("checkins")]);
   const now = Date.now() - 8 * 36e5;
   const upcoming = events.filter((e) => new Date(e.starts_at).getTime() >= now);
   const past = events.filter((e) => new Date(e.starts_at).getTime() < now).reverse().slice(0, 12);

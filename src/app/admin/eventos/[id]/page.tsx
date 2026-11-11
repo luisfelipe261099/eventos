@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { db, hasSupabaseStorage, postgresUrl } from "@/lib/db";
 import type { EventItem, TicketType } from "@/lib/types";
 import { isoToBrLocal } from "@/lib/admin-ops";
+import { ownedEvent } from "@/lib/repo";
 import { Page, TopBar } from "@/components/ui";
 import AdminNav from "../../AdminNav";
 import EventForm from "./EventForm";
@@ -14,7 +15,7 @@ export const metadata = { title: "Evento" };
 export default async function EventEdit({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const isNew = id === "novo";
-  const ev = isNew ? null : await db().get<EventItem>("events", id);
+  const ev: EventItem | null = isNew ? null : await ownedEvent(id);
   if (!isNew && !ev) notFound();
   const lots = ev ? (await db().select<TicketType>("ticket_types", { event_id: ev.id })).sort((a, b) => a.price_cents - b.price_cents) : [];
   const [tks, custs] = ev ? await Promise.all([db().select<Ticket>("tickets", { event_id: ev.id }), db().select<Customer>("customers")]) : [[], []];

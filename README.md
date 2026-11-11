@@ -62,51 +62,51 @@ npm test           # testes da IA, do QR e da geolocalização
 - **Região:** as funções rodam em São Paulo (`gru1`, definido no `vercel.json`).
 - **CI:** o GitHub Actions roda os testes, as migrações num Postgres e o build a cada push.
 
+## Modelo de negócio: mensalidade + taxa por ingresso
+
+A VipFlow é um SaaS: várias casas usam a mesma instalação, cada uma com a própria conta (`/cadastro`), o próprio painel e o próprio Asaas.
+
+| Plano | Mensalidade | Taxa por ingresso pago | Mínimo por ingresso |
+|---|---|---|---|
+| Essencial | R$ 79 | 5% | R$ 1,00 |
+| Pro | R$ 149 | 3,5% | R$ 0,80 |
+| Casa Cheia | R$ 299 | 2% | R$ 0,50 |
+
+- Os valores ficam em `src/lib/plans.ts`. Todos os planos têm todos os recursos; a diferença é o volume.
+- **Referência de mercado (11/2026):** ticketeiras cobram cerca de 10% por ingresso, com mínimo de R$ 2,00 a R$ 3,99, e repassam o dinheiro dias depois do evento. Sistemas de comanda custam de R$ 100 a R$ 300 por mês. Há um teste garantindo que nenhum volume sai mais caro que essa referência.
+- **30 dias grátis** no cadastro. Ingresso grátis não paga taxa. Bar e comandas não pagam taxa.
+- **Quem paga a taxa:** a casa escolhe em `/admin/plano`. Ou o cliente paga como taxa de serviço no checkout, ou a casa absorve.
+- **Página de vendas:** `/planos`, com simulador de custo e formulário de contato.
+- **Visão da plataforma:** `/plataforma` (entra só com a `ADMIN_PASSWORD`, e-mail em branco). Lista as casas, mensalidades, taxas do mês e pedidos de contato; troca plano, pausa uma casa, estende o período grátis e abre o painel de qualquer casa.
+
+**Como a VipFlow recebe:**
+- **Taxa por ingresso:** com `ASAAS_SPLIT_WALLET_ID` (walletId da conta Asaas da VipFlow), a taxa sai de cada Pix pelo split, em valor fixo. Sem a variável, a taxa fica gravada no ingresso e aparece como "a faturar".
+- **Mensalidade:** com `VIPFLOW_ASAAS_API_KEY` (chave de API da conta Asaas da VipFlow), a casa assina em `/admin/plano` e paga por Pix, boleto ou cartão. Com 10 dias de atraso as vendas online da casa são pausadas, e voltam sozinhas quando ela paga. Sem a variável, a cobrança é manual e ninguém é pausado sozinho.
+
 ## Pagamentos (Asaas)
 
-- **Fluxo:**
-  1. Cria (ou reaproveita) o cliente no Asaas. O CPF é obrigatório e é pedido no checkout.
-  2. Cria a cobrança `PIX`.
-  3. Mostra o QR Code e o copia e cola.
-  4. Confirma pelo webhook `PAYMENT_RECEIVED`. Como reforço, consulta o status direto na API enquanto o cliente espera na tela.
-- **Quando conta como pago:** Pix só é considerado pago com status `RECEIVED`, porque `CONFIRMED` em Pix pode ser um bloqueio cautelar.
-- **Split (comissão da VipFlow):** com `ASAAS_SPLIT_WALLET_ID` e `ASAAS_SPLIT_PERCENT`, cada cobrança já sai com a % da plataforma descontada automaticamente.
-- **Webhook:** o token é derivado da chave de API, então não precisa de variável extra. O botão em `/admin/setup` cadastra o webhook na conta da casa.
-- **Ingressos não pagos:** com Pix pendente há mais de 2 horas, são cancelados pela rotina diária, e a vaga volta ao lote.
+- **Cada casa usa a própria conta Asaas.** Ela cola a chave de API em `/admin/setup`; a chave fica cifrada no banco (AES-256-GCM) e o webhook é cadastrado na hora. O Pix cai direto na conta da casa.
+- **Sem a chave**, a casa só distribui ingresso grátis. Aprovação automática existe apenas no modo demo ou com `PAYMENTS_TEST_MODE=1`.
+- **Fluxo:** cliente no Asaas (CPF obrigatório) → cobrança `PIX` → QR Code e copia e cola → webhook `PAYMENT_RECEIVED`. Como reforço, o app consulta o status enquanto o cliente espera na tela.
+- **Quando conta como pago:** só com status `RECEIVED`, porque `CONFIRMED` em Pix pode ser bloqueio cautelar.
+- **Webhook por casa:** `/api/payments/webhook?v=ID_DA_CASA`, com token derivado da chave daquela casa. Um pagamento só quita o ingresso ou a comanda para o qual o próprio app gerou a cobrança.
+- **Ingressos não pagos:** com Pix pendente há mais de 2 horas, são cancelados pela rotina diária e a vaga volta ao lote.
 
 ## Colocar em produção (dados reais)
 
-1. **Conectar o banco:** na Vercel, abra o projeto → **Storage** → **Create Database** → **Supabase** (plano Free, região São Paulo) → conecte ao projeto. A integração cria sozinha `POSTGRES_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` e as demais variáveis.
-2. **Redeploy:** em Deployments → ⋯ → Redeploy, para o app ler as variáveis novas.
-3. **Configuração em 1 clique:** abra `/admin/setup`, entre com a `ADMIN_PASSWORD` e clique em **Criar tabelas**. Depois cadastre a casa. As migrações de `supabase/migrations` rodam direto no Postgres, e cada uma só uma vez.
-4. **Cadastros no painel:**
-   - **Eventos:** nome, data, descrição, lotes e flyer, com upload para o Supabase Storage.
-   - **Cardápio:** preço, custo e estoque. O custo alimenta a IA de promoções.
-   - **Promoters:** cada um recebe um link individual, `/promoter?k=código`, para enviar pelo WhatsApp.
-   - **Casa e mesas:** endereço, localização da porta para o GPS dos promoters e QR codes das mesas para imprimir.
-5. **Pix (Asaas):** cadastre `ASAAS_API_KEY` na Vercel (sem ela, pagamentos são aprovados automaticamente em modo teste) e clique em **Configurar webhook** em `/admin/setup`. Comece com a chave do Sandbox (`$aact_hmlg_`) e troque pela de produção (`$aact_prod_`) para vender de verdade.
-6. **Opcionais:**, `GEMINI_API_KEY` (textos por IA) e `WHATSAPP_*` (envio automático).
+1. **Conectar o banco:** na Vercel, abra o projeto → **Storage** → **Create Database** → **Supabase** ou **Neon** (plano grátis) → conecte ao projeto. A integração cria `POSTGRES_URL`.
+2. **Variáveis:** `ADMIN_PASSWORD` (senha da plataforma), `SESSION_SECRET` (assina as sessões e cifra as chaves do Asaas; não troque depois de ter casas cadastradas), `CRON_SECRET` e `NEXT_PUBLIC_APP_URL`.
+3. **Redeploy.** As tabelas são criadas no primeiro cadastro de casa, ou pelo botão em `/admin/setup` logado como plataforma. Cada migração de `supabase/migrations` roda uma única vez.
+4. **Receber das casas:** cadastre `ASAAS_SPLIT_WALLET_ID` e `VIPFLOW_ASAAS_API_KEY` (veja acima).
+5. **Cada casa**, depois de se cadastrar em `/cadastro`: liga o Pix em `/admin/setup`, cadastra eventos, cardápio, promoters e mesas, e escolhe o plano em `/admin/plano`.
+6. **Opcionais:** `GEMINI_API_KEY` (textos por IA) e `WHATSAPP_*` (envio automático).
 
-**Como o app escolhe o banco:**
-- Com `POSTGRES_URL`, fala direto com o Postgres.
-- Só com `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`, usa a API do Supabase.
-- Sem nenhum dos dois, roda no modo demo.
+**Como o app escolhe o banco:** com `POSTGRES_URL`, fala direto com o Postgres. Sem ela, roda no modo demo.
 
-**Garantias:** a venda de lote é atômica (função `reserve_ticket`), então não vende além da quantidade. O check-in é único por ingresso (`unique(ticket_id)`).
-
----|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | URL do Supabase |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | chave pública |
-| `SUPABASE_SERVICE_ROLE_KEY` | chave do servidor (**nunca** exponha no front) |
-| `ADMIN_PASSWORD` | senha do painel e da portaria |
-| `CRON_SECRET` | protege a rotina diária de convites |
-| `NEXT_PUBLIC_APP_URL` | ex.: `https://vipflow.vercel.app` |
-| `GEMINI_API_KEY` | opcional, chave grátis do aistudio.google.com |
-| `ASAAS_API_KEY` | chave de API do Asaas **da casa** (Pix cai direto na conta dela) |
-
-5. Faça um novo deploy. O banner de "modo demo" some.
-
-
+**Garantias:**
+- A venda de lote é atômica (função `reserve_ticket`), então não vende além da quantidade.
+- O check-in é único por ingresso (`unique(ticket_id)`).
+- Toda alteração do painel confere se o registro é da casa logada.
 
 ---
 
@@ -122,7 +122,10 @@ npm test           # testes da IA, do QR e da geolocalização
 
 | Rota | Quem usa | O que faz |
 |---|---|---|
-| `/admin/setup` | dono | Configuração e checklist de produção |
+| `/planos` · `/cadastro` | casa interessada | Preços, simulador de custo e criação da conta |
+| `/plataforma` | VipFlow | Casas, mensalidades, taxas do mês e pedidos de contato |
+| `/admin/setup` | dono | Liga o Pix da casa e mostra o que falta |
+| `/admin/plano` | dono | Plano, quem paga a taxa e mensalidade |
 | `/admin/eventos` · `/admin/cardapio` · `/admin/promoters` · `/admin/casa` | dono | Cadastros |
 | `/` | cliente | Vitrine: abas de categoria, carrossel de destaques, busca e agenda |
 | `/conta` | cliente | Atalhos, meus ingressos e comanda aberta |
@@ -175,8 +178,8 @@ supabase/
 ```
 
 ## Próximos passos sugeridos
-1. **Login real** com Supabase Auth (por telefone ou e-mail) para cliente, promoter e equipe, no lugar da senha única do painel.
-2. **Multi-casa (SaaS):** adicionar `venue_id` nas consultas e nas políticas RLS por organização.
-3. **Split de pagamento:** usar o split do Asaas (`split` com `walletId` da VipFlow) para cobrar a comissão da plataforma automaticamente em cada venda.
+1. **Usuários por função** (portaria, bar) em cada casa, no lugar do login único do dono, e recuperação de senha por e-mail.
+2. **Cartão de crédito** no checkout, além do Pix.
+3. **Webhook da conta da VipFlow** para atualizar a mensalidade na hora (hoje a situação é conferida na rotina diária e ao abrir `/admin/plano`).
 4. **Realtime:** trocar o polling do painel de comandas pelo Supabase Realtime.
 5. **Gerar imagens das campanhas** e publicar direto no Instagram (Meta Graph API).

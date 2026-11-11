@@ -9,7 +9,7 @@ import postgres from "postgres";
 import { hasSupabaseStorage, isSupabaseConfigured, pg, postgresUrl, supabaseUrl } from "./db";
 
 /** Migrações esperadas (mantenha igual aos arquivos de supabase/migrations; há teste garantindo). */
-export const MIGRATIONS = ["0001_init.sql", "0002_vitrine.sql", "0003_operacao.sql", "0004_asaas.sql", "0005_midia_seguranca.sql"];
+export const MIGRATIONS = ["0001_init.sql", "0002_vitrine.sql", "0003_operacao.sql", "0004_asaas.sql", "0005_midia_seguranca.sql", "0006_saas.sql"];
 
 export const dbUrl = () => process.env.POSTGRES_URL_NON_POOLING || process.env.DATABASE_URL || process.env.POSTGRES_URL || "";
 void postgresUrl;
@@ -54,6 +54,11 @@ export interface SetupStatus {
   payments: boolean;
   paymentsSandbox: boolean;
   split: boolean;
+  /** mensalidade cobrada automaticamente (chave Asaas da VipFlow) */
+  billing: boolean;
+  /** quem está vendo é a VipFlow (plataforma) */
+  root: boolean;
+  venues: number;
   ai: boolean;
   whatsapp: boolean;
   supabaseHost: string;
@@ -62,23 +67,32 @@ export interface SetupStatus {
 
 export async function setupStatus(): Promise<SetupStatus> {
   const supa = isSupabaseConfigured();
-  let tables = false, venue = false;
+  let tables = false, venue = false, venues = 0;
   if (supa && postgresUrl()) {
     try {
       const sql = pg();
       const [t] = await sql`select to_regclass('public.venues') is not null as ok, to_regclass('public._vipflow_migrations') is not null as m`;
       tables = t.ok && t.m;
-      if (t.ok) { const [v] = await sql`select count(*)::int as n from venues`; venue = v.n > 0; }
+      if (t.ok) { const [v] = await sql`select count(*)::int as n from venues`; venues = v.n; }
       if (tables) { const done = (await sql<{ name: string }[]>`select name from _vipflow_migrations`).map((r) => r.name); tables = MIGRATIONS.every((m) => done.includes(m)); }
     } catch { tables = false; }
   } else if (supa) {
     try {
       const { supabaseAdmin } = await import("./db");
       const { data, error } = await supabaseAdmin().from("venues").select("id").limit(1);
-      tables = !error; venue = !error && (data?.length ?? 0) > 0;
+      tables = !error; venues = error ? 0 : (data?.length ?? 0);
     } catch { tables = false; }
   }
+  // Pix e casa são os da sessão (cada casa tem a própria chave do Asaas)
+  const { getVenueOrNull, payMode } = await import("./repo");
+  const { isRoot } = await import("./admin-auth");
+  const { isSandboxKey } = await import("./payments");
+  const mine = tables || !supa ? await getVenueOrNull().catch(() => null) : null;
+  venue = Boolean(mine);
+  const mode = mine ? await payMode(mine.id) : { kind: "off" as const };
   return {
+    root: await isRoot(), venues,
+    billing: Boolean(process.env.VIPFLOW_ASAAS_API_KEY),
     mode: supa ? "supabase" : "demo",
     supabase: supa,
     dbUrl: Boolean(dbUrl()),
@@ -86,9 +100,9 @@ export async function setupStatus(): Promise<SetupStatus> {
     adminPassword: Boolean(process.env.ADMIN_PASSWORD),
     cronSecret: Boolean(process.env.CRON_SECRET),
     appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "",
-    payments: Boolean(process.env.ASAAS_API_KEY),
+    payments: mode.kind === "asaas",
     split: Boolean(process.env.ASAAS_SPLIT_WALLET_ID),
-    paymentsSandbox: (process.env.ASAAS_API_KEY ?? "").startsWith("$aact_hmlg_") || process.env.ASAAS_ENV === "sandbox",
+    paymentsSandbox: mode.kind === "asaas" && isSandboxKey(mode.cfg.apiKey),
     ai: Boolean(process.env.GEMINI_API_KEY),
     whatsapp: Boolean(process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_ID),
     supabaseHost: supabaseUrl().replace(/^https?:\/\//, "").split(".")[0] || (postgresUrl().match(/@([^:/]+)/)?.[1] ?? ""),

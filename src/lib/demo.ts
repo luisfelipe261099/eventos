@@ -6,7 +6,7 @@
  */
 import type {
   Checkin, Customer, EventItem, GuestListEntry, Invite, OrderItem, Product,
-  Promoter, Tab, Ticket, TicketType, Venue,
+  Promoter, Tab, Ticket, TicketType, Venue, Lead,
 } from "./types";
 
 export interface DemoData {
@@ -22,6 +22,7 @@ export interface DemoData {
   tabs: Tab[];
   order_items: OrderItem[];
   invites: Invite[];
+  leads: Lead[];
 }
 
 function rng(seed: number) {
@@ -84,8 +85,8 @@ export function buildDemoData(): DemoData {
   for (let i = 0; i < 90; i++) customers.push({ id: `c-${i}`, name: `${pick(FIRST)} ${pick(LAST).charAt(0)}.`, phone: `+55419${String(80000000 + i)}` });
 
   const promoters: Promoter[] = [
-    { id: "pr-1", name: "Léo Promoter", phone: "+5541988887777", commission_cents: 1500, access_code: "pr-1", active: true },
-    { id: "pr-2", name: "Bia Eventos", phone: "+5541988886666", commission_cents: 1500, access_code: "pr-2", active: true },
+    { id: "pr-1", venue_id: "venue-1", name: "Léo Promoter", phone: "+5541988887777", commission_cents: 1500, access_code: "pr-1", active: true },
+    { id: "pr-2", venue_id: "venue-1", name: "Bia Eventos", phone: "+5541988886666", commission_cents: 1500, access_code: "pr-2", active: true },
   ];
 
   const events: EventItem[] = []; const ticket_types: TicketType[] = []; const tickets: Ticket[] = [];
@@ -160,5 +161,5 @@ export function buildDemoData(): DemoData {
   });
 
   const invites: Invite[] = [];
-  return { venues: [venue, galpao, quintal], events, ticket_types, customers, tickets, checkins, promoters, guest_list, products, tabs, order_items, invites };
+  return { venues: [venue, galpao, quintal], events, ticket_types, customers, tickets, checkins, promoters, guest_list, products, tabs, order_items, invites, leads: [] };
 }

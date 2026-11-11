@@ -1,5 +1,7 @@
 import { body, fail, guardAdmin, handle, ok } from "@/lib/http";
-import { currentEvent, liveOrders, setOrderStatus } from "@/lib/repo";
+import { currentEvent, liveOrders, ownedEvent, setOrderStatus } from "@/lib/repo";
+import { db } from "@/lib/db";
+import type { OrderItem } from "@/lib/types";
 import type { OrderStatus } from "@/lib/types";
 
 export const GET = handle(async () => {
@@ -14,5 +16,7 @@ export const PATCH = handle(async (req: Request) => {
   const b = await body<{ id: string; status?: OrderStatus; current?: string }>(req);
   const status = b.status ?? NEXT[b.current ?? ""];
   if (!b.id || !status) return fail("Status inválido");
+  const item = await db().get<OrderItem>("order_items", b.id);
+  if (!item || !(await ownedEvent(item.event_id))) return fail("Pedido não encontrado.", 404);
   return ok(await setOrderStatus(b.id, status));
 });

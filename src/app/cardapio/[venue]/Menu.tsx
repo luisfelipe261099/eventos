@@ -7,7 +7,7 @@ import { brl } from "@/lib/format";
 
 const CAT_ORDER = ["Drinks", "Cervejas", "Combos", "Petiscos", "Garrafas"];
 
-export default function Menu({ products, table }: { products: Product[]; table: string }) {
+export default function Menu({ products, table, venue }: { products: Product[]; table: string; venue: string }) {
   const router = useRouter();
   const cats = useMemo(() => CAT_ORDER.filter((c) => products.some((p) => p.category === c)), [products]);
   const [cat, setCat] = useState(cats[0]);
@@ -33,7 +33,7 @@ export default function Menu({ products, table }: { products: Product[]; table: 
     if (!tabId && (!profile.name || !profile.phone)) return setAskProfile(true);
     setSending(true); setErr("");
     localStorage.setItem("vf_profile", JSON.stringify(profile));
-    const r = await fetch("/api/tabs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tabId, table, ...profile, items: Object.entries(cart).map(([productId, qty]) => ({ productId, qty })) }) });
+    const r = await fetch("/api/tabs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ venue, tabId, table, ...profile, items: Object.entries(cart).map(([productId, qty]) => ({ productId, qty })) }) });
     const j = await r.json(); setSending(false);
     if (!r.ok) return setErr(j.error ?? "O pedido não foi enviado. Tente de novo.");
     localStorage.setItem("vf_tab", j.tabId);

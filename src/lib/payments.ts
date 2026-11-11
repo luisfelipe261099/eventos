@@ -1,9 +1,11 @@
 /**
  * Pagamentos Pix via Asaas.
  *
- * O dinheiro cai direto na conta Asaas DA CASA (a chave de API é dela).
+ * Cada casa usa a PRÓPRIA chave de API do Asaas: o Pix cai direto na conta dela,
+ * na hora. A taxa da VipFlow sai de cada cobrança pelo split (valor fixo) para a
+ * carteira da plataforma (ASAAS_SPLIT_WALLET_ID).
  * - Chave $aact_hmlg_... → Sandbox (testes) | $aact_prod_... → Produção
- * - Sem ASAAS_API_KEY → modo teste: pagamentos aprovados na hora.
+ * - Modo demo (sem banco) ou PAYMENTS_TEST_MODE=1: pagamentos aprovados na hora.
  *
  * Fluxo: cliente no Asaas (exige CPF) → cobrança PIX → QR Code (imagem +
  * copia e cola) → webhook PAYMENT_RECEIVED confirma. Como reforço, o status
@@ -11,16 +13,20 @@
  */
 const UA = "VipFlow/1.0 (Next.js)";
 
-export const paymentsEnabled = () => Boolean(process.env.ASAAS_API_KEY);
-export const asaasSandbox = () => process.env.ASAAS_ENV === "sandbox" || (process.env.ASAAS_API_KEY ?? "").startsWith("$aact_hmlg_");
-const baseUrl = () => process.env.ASAAS_BASE_URL || (asaasSandbox() ? "https://api-sandbox.asaas.com/v3" : "https://api.asaas.com/v3"); // ASAAS_BASE_URL só para testes
+/** Credencial de uma conta Asaas (a da casa, ou a da VipFlow para as mensalidades). */
+export interface AsaasCfg { apiKey: string }
+
+export const isSandboxKey = (key: string) => process.env.ASAAS_ENV === "sandbox" || key.startsWith("$aact_hmlg_");
+const baseUrl = (cfg: AsaasCfg) => process.env.ASAAS_BASE_URL || (isSandboxKey(cfg.apiKey) ? "https://api-sandbox.asaas.com/v3" : "https://api.asaas.com/v3"); // ASAAS_BASE_URL só para testes
+/** Aprovação automática sem cobrar: só fora de produção. */
+export const testPayments = () => process.env.PAYMENTS_TEST_MODE === "1";
 
 export class PaymentError extends Error {}
 
-async function asaas<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
-  const res = await fetch(`${baseUrl()}${path}`, {
+export async function asaas<T>(cfg: AsaasCfg, path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
+  const res = await fetch(`${baseUrl(cfg)}${path}`, {
     method: init.method ?? "GET",
-    headers: { "Content-Type": "application/json", "User-Agent": UA, access_token: process.env.ASAAS_API_KEY ?? "" },
+    headers: { "Content-Type": "application/json", "User-Agent": UA, access_token: cfg.apiKey },
     body: init.body ? JSON.stringify(init.body) : undefined,
     signal: AbortSignal.timeout(15000),
     cache: "no-store",
@@ -35,7 +41,7 @@ async function asaas<T>(path: string, init: { method?: string; body?: unknown } 
 }
 
 /** Data de hoje no fuso de Brasília (vencimento da cobrança Pix). */
-const todayBR = () => new Date(Date.now() - 3 * 36e5).toISOString().slice(0, 10);
+export const todayBR = () => new Date(Date.now() - 3 * 36e5).toISOString().slice(0, 10);
 
 export interface PixCharge {
   provider: "asaas" | "teste";
@@ -49,51 +55,55 @@ export interface PixCharge {
 
 export interface Payer { name: string; cpf?: string | null; phone?: string | null; email?: string | null; asaasId?: string | null }
 
-async function ensureCustomer(p: Payer): Promise<string> {
+export async function ensureCustomer(cfg: AsaasCfg, p: Payer): Promise<string> {
   if (p.asaasId) return p.asaasId;
   const cpf = (p.cpf ?? "").replace(/\D/g, "");
-  if (!cpf) throw new PaymentError("Informe o CPF para pagar com Pix.");
-  const found = await asaas<{ data: { id: string }[] }>(`/customers?cpfCnpj=${cpf}&limit=1`);
+  if (!cpf) throw new PaymentError("Informe o CPF ou CNPJ.");
+  const found = await asaas<{ data: { id: string }[] }>(cfg, `/customers?cpfCnpj=${cpf}&limit=1`);
   if (found.data?.[0]?.id) return found.data[0].id;
   const phone = (p.phone ?? "").replace(/\D/g, "").replace(/^55(?=\d{10,11}$)/, "");
-  const created = await asaas<{ id: string }>("/customers", {
+  const created = await asaas<{ id: string }>(cfg, "/customers", {
     method: "POST",
     body: { name: p.name, cpfCnpj: cpf, mobilePhone: phone.length >= 10 ? phone : undefined, email: p.email || undefined, notificationDisabled: true },
   });
   return created.id;
 }
 
-export async function createPixCharge(input: { amountCents: number; description: string; externalRef: string; payer: Payer }): Promise<PixCharge> {
-  if (input.amountCents <= 0) return { provider: "teste", paymentId: `free-${input.externalRef}`, status: "approved" };
-  if (!paymentsEnabled()) return { provider: "teste", paymentId: `teste-${input.externalRef}`, status: "approved" };
-  const customer = await ensureCustomer(input.payer);
-  const pay = await asaas<{ id: string; status: string }>("/payments", {
+/**
+ * Cria a cobrança Pix na conta da casa. `cfg` nulo = sem Asaas: aprova na hora
+ * (quem chama só passa nulo no modo demo ou de teste).
+ * `feeCents` é a taxa da VipFlow, repassada pelo split quando a carteira da plataforma está configurada.
+ */
+export async function createPixCharge(cfg: AsaasCfg | null, input: { amountCents: number; feeCents?: number; description: string; externalRef: string; payer: Payer }): Promise<PixCharge & { feeSplit: boolean }> {
+  if (input.amountCents <= 0) return { provider: "teste", paymentId: `free-${input.externalRef}`, status: "approved", feeSplit: false };
+  if (!cfg) return { provider: "teste", paymentId: `teste-${input.externalRef}`, status: "approved", feeSplit: false };
+  const customer = await ensureCustomer(cfg, input.payer);
+  const split = splitFor(input.feeCents ?? 0);
+  const pay = await asaas<{ id: string; status: string }>(cfg, "/payments", {
     method: "POST",
     body: {
       customer, billingType: "PIX", value: input.amountCents / 100, dueDate: todayBR(),
       description: input.description.slice(0, 500), externalReference: input.externalRef,
-      ...(splitConfig() ? { split: [splitConfig()] } : {}),
+      ...(split ? { split: [split] } : {}),
     },
   });
-  const qr = await asaas<{ encodedImage: string; payload: string; expirationDate: string }>(`/payments/${pay.id}/pixQrCode`);
-  return { provider: "asaas", paymentId: pay.id, status: "pending", qrCode: qr.payload, qrCodeBase64: qr.encodedImage, expiresAt: qr.expirationDate, asaasCustomerId: customer };
+  const qr = await asaas<{ encodedImage: string; payload: string; expirationDate: string }>(cfg, `/payments/${pay.id}/pixQrCode`);
+  return { provider: "asaas", paymentId: pay.id, status: "pending", qrCode: qr.payload, qrCodeBase64: qr.encodedImage, expiresAt: qr.expirationDate, asaasCustomerId: customer, feeSplit: Boolean(split) };
 }
 
-/**
- * Split: comissão da VipFlow descontada automaticamente de cada venda.
- * ASAAS_SPLIT_WALLET_ID = walletId da conta Asaas da VipFlow; ASAAS_SPLIT_PERCENT = % (padrão 5).
- */
-export function splitConfig(): { walletId: string; percentualValue: number } | null {
-  const walletId = process.env.ASAAS_SPLIT_WALLET_ID;
-  if (!walletId) return null;
-  const pct = Number(process.env.ASAAS_SPLIT_PERCENT ?? 5);
-  return { walletId, percentualValue: Math.min(50, Math.max(0.01, Number.isFinite(pct) ? pct : 5)) };
+/** Carteira Asaas da VipFlow, para onde vai a taxa de cada ingresso. */
+export const platformWallet = () => process.env.ASAAS_SPLIT_WALLET_ID || "";
+/** Split de valor fixo: a taxa da VipFlow daquela venda. Sem carteira configurada, a taxa fica registrada para faturar depois. */
+export function splitFor(feeCents: number): { walletId: string; fixedValue: number } | null {
+  const walletId = platformWallet();
+  if (!walletId || feeCents <= 0) return null;
+  return { walletId, fixedValue: feeCents / 100 };
 }
 
 /** Estorna um Pix recebido (devolve o valor ao cliente). */
-export async function refundPayment(paymentId: string, description = "Estorno solicitado pela casa") {
-  if (!paymentsEnabled() || !paymentId || /^(teste|free)-/.test(paymentId)) return { refunded: true, simulated: true };
-  await asaas(`/payments/${paymentId}/refund`, { method: "POST", body: { description } });
+export async function refundPayment(cfg: AsaasCfg | null, paymentId: string, description = "Estorno solicitado pela casa") {
+  if (!cfg || !paymentId || /^(teste|free)-/.test(paymentId)) return { refunded: true, simulated: true };
+  await asaas(cfg, `/payments/${paymentId}/refund`, { method: "POST", body: { description } });
   return { refunded: true, simulated: false };
 }
 
@@ -101,27 +111,27 @@ export async function refundPayment(paymentId: string, description = "Estorno so
 export const isPaidStatus = (status: string, billingType = "PIX") =>
   status === "RECEIVED" || status === "RECEIVED_IN_CASH" || (billingType !== "PIX" && status === "CONFIRMED");
 
-export async function getPayment(paymentId: string) {
-  return asaas<{ id: string; status: string; billingType: string; externalReference: string | null; value: number }>(`/payments/${paymentId}`);
+export async function getPayment(cfg: AsaasCfg, paymentId: string) {
+  return asaas<{ id: string; status: string; billingType: string; externalReference: string | null; value: number; invoiceUrl?: string; dueDate?: string }>(cfg, `/payments/${paymentId}`);
 }
 
 /** Token do webhook derivado da chave de API: não precisa de variável extra. */
-export async function webhookToken(): Promise<string> {
-  const data = new TextEncoder().encode(`vipflow-webhook:${process.env.ASAAS_API_KEY ?? ""}`);
+export async function webhookToken(cfg: AsaasCfg): Promise<string> {
+  const data = new TextEncoder().encode(`vipflow-webhook:${cfg.apiKey}`);
   const hash = await crypto.subtle.digest("SHA-256", data);
   return Array.from(new Uint8Array(hash), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 /** Cadastra (ou reaproveita) o webhook de pagamentos na conta Asaas da casa. */
-export async function ensureWebhook(appUrl: string, email: string) {
-  const url = `${appUrl.replace(/\/$/, "")}/api/payments/webhook`;
-  const list = await asaas<{ data: { id: string; url: string }[] }>("/webhooks?limit=100").catch(() => ({ data: [] }));
+export async function ensureWebhook(cfg: AsaasCfg, appUrl: string, email: string, venueId: string) {
+  const url = `${appUrl.replace(/\/$/, "")}/api/payments/webhook?v=${encodeURIComponent(venueId)}`;
+  const list = await asaas<{ data: { id: string; url: string }[] }>(cfg, "/webhooks?limit=100").catch(() => ({ data: [] }));
   const body = {
     name: "VipFlow", url, email, enabled: true, interrupted: false, apiVersion: 3, sendType: "SEQUENTIALLY",
-    authToken: await webhookToken(), events: ["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED", "PAYMENT_REFUNDED", "PAYMENT_DELETED"],
+    authToken: await webhookToken(cfg), events: ["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED", "PAYMENT_REFUNDED", "PAYMENT_DELETED"],
   };
   const existing = list.data?.find((w) => w.url === url);
-  if (existing) await asaas(`/webhooks/${existing.id}`, { method: "PUT", body });
-  else await asaas("/webhooks", { method: "POST", body });
+  if (existing) await asaas(cfg, `/webhooks/${existing.id}`, { method: "PUT", body });
+  else await asaas(cfg, "/webhooks", { method: "POST", body });
   return { url, updated: Boolean(existing) };
 }

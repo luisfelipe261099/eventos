@@ -10,7 +10,25 @@ export interface Venue {
   /** raio (m) usado para validar check-in de promoters por geolocalização */
   geofence_m: number;
   address?: string;
+  // --- conta da casa (SaaS) ---
+  owner_name?: string | null;
+  owner_email?: string | null;
+  owner_phone?: string | null;
+  doc?: string | null;
+  password_hash?: string | null;
+  plan?: string | null;
+  fee_mode?: "buyer" | "venue" | null;
+  plan_status?: "trial" | "active" | "past_due" | "blocked" | null;
+  trial_ends_at?: string | null;
+  asaas_key_enc?: string | null;
+  /** preenchido nas leituras públicas no lugar da chave */
+  has_asaas?: boolean;
+  billing_customer_id?: string | null;
+  billing_subscription_id?: string | null;
+  created_at?: string;
 }
+
+export interface Lead { id: ID; name: string; venue_name: string; phone: string; city: string; plan: string; created_at: string }
 
 export interface EventItem {
   id: ID;
@@ -57,6 +75,10 @@ export interface Ticket {
   /** semente secreta do QR dinâmico (HMAC). Só o dono e a portaria conhecem. */
   qr_seed: string;
   price_cents: number;
+  /** taxa da VipFlow neste ingresso (0 em ingresso grátis) */
+  fee_cents?: number;
+  /** true quando a taxa já foi repassada à VipFlow pelo split do Asaas */
+  fee_split?: boolean;
   is_free?: boolean;
   payment_id?: string | null;
   refunded_at?: string | null;
@@ -76,6 +98,7 @@ export interface Promoter {
   id: ID;
   name: string;
   phone: string;
+  venue_id?: ID | null;
   commission_cents: number; // por convidado validado
   /** código do link individual do promoter (/promoter?k=...) */
   access_code?: string;

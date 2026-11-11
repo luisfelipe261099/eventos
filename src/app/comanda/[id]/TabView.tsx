@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { brl, fmtTime, isValidCpf, maskCpf } from "@/lib/format";
 
 type Line = { id: string; name: string; qty: number; unit_price_cents: number; status: string; created_at: string };
-type TabData = { tab: { id: string; table_label: string; status: string }; lines: Line[]; subtotal: number; service: number; total: number; requireCpf?: boolean };
+type TabData = { tab: { id: string; table_label: string; status: string }; lines: Line[]; subtotal: number; service: number; total: number; requireCpf?: boolean; payOnline?: boolean };
 
 const STATUS: Record<string, { t: string; c: string }> = {
   queued: { t: "Na fila", c: "bg-linha text-nevoa" }, preparing: { t: "Preparando", c: "bg-[#fff1dc] text-[#9a5b00]" },
@@ -90,7 +90,9 @@ export default function TabView({ id }: { id: string }) {
             </label>
           )}
           {payErr && <p role="alert" className="text-sm font-medium text-[#c22a3a]">{payErr}</p>}
-          <button className="btn-primary w-full" onClick={pay} disabled={paying || data.total === 0 || (askCpf && !isValidCpf(cpf))}>{paying ? "Gerando Pix…" : `Pagar ${brl(data.total)} com Pix`}</button>
+          {data.payOnline === false
+            ? <p className="rounded-xl bg-papel p-3 text-center text-sm text-nevoa">Pagamento no caixa: chame o atendente para fechar a conta.</p>
+            : <button className="btn-primary w-full" onClick={pay} disabled={paying || data.total === 0 || (askCpf && !isValidCpf(cpf))}>{paying ? "Gerando Pix…" : `Pagar ${brl(data.total)} com Pix`}</button>}
           <button onClick={() => history.back()} className="btn-line w-full">Pedir mais</button>
         </div>
       )}

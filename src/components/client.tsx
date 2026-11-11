@@ -69,6 +69,8 @@ export function Footer() {
         <div>
           <h3 className="text-sm font-semibold">Para casas e produtores</h3>
           <ul className="mt-3 space-y-2 text-sm text-white/60">
+            <li><Link className="hover:text-white" href="/planos">Planos e preços</Link></li>
+            <li><Link className="hover:text-white" href="/cadastro">Cadastrar minha casa</Link></li>
             <li><Link className="hover:text-white" href="/simular">Simulador</Link></li>
             <li><Link className="hover:text-white" href="/admin">Painel da casa</Link></li>
             <li><Link className="hover:text-white" href="/bar">Tela do bar</Link></li>

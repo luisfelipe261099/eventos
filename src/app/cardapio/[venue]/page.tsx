@@ -11,14 +11,14 @@ export default async function CardapioPage({ params, searchParams }: { params: P
   const { mesa } = await searchParams;
   const venue = await getVenueBySlug(slug);
   if (!venue) notFound();
-  const [products, ev] = await Promise.all([listProducts(), currentEvent()]);
+  const [products, ev] = await Promise.all([listProducts(venue.id), currentEvent(venue.id)]);
   const table = mesa ? `Mesa ${mesa}` : "Pista";
   return (
     <ClientShell back="/">
       <div className="mx-auto max-w-md pt-6">
         <p className="text-sm text-nevoa">{venue.name} · {table}</p>
         <h1 className="h-display text-[34px]">Cardápio</h1>
-        {!ev ? <p className="mt-6 text-nevoa">O cardápio abre quando a casa estiver funcionando.</p> : <Menu products={products} table={table} />}
+        {!ev ? <p className="mt-6 text-nevoa">O cardápio abre quando a casa estiver funcionando.</p> : <Menu products={products} table={table} venue={venue.slug} />}
       </div>
     </ClientShell>
   );

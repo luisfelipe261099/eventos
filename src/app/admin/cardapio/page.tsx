@@ -9,7 +9,8 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Cardápio" };
 
 export default async function CardapioAdmin() {
-  const [products, venue] = await Promise.all([db().select<Product>("products"), getVenueOrNull()]);
+  const venue = await getVenueOrNull();
+  const products = venue ? await db().select<Product>("products", { venue_id: venue.id }) : [];
   return (
     <Page wide>
       <TopBar title="Cardápio" sub="Produtos, preços e estoque" back="/" />
