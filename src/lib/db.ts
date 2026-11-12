@@ -59,6 +59,9 @@ export function pg(): Sql {
     const local = /localhost|127\.0\.0\.1/.test(url);
     gp.__vfSql = postgres(url, {
       ssl: local ? false : "require", max: 3, idle_timeout: 20, connect_timeout: 15, max_lifetime: 300, keep_alive: 30,
+      // uma consulta por vez em cada conexão: o pooler do Supabase (modo transação) trava com pipelining,
+      // e isso só aparece quando há mais consultas simultâneas do que conexões (ex.: Financeiro)
+      max_pipeline: 1,
       prepare: false, // compatível com o pooler do Supabase (porta 6543)
       transform: { undefined: null, value: { from: (v: unknown) => (v instanceof Date ? v.toISOString() : v) } },
       onnotice: () => {},

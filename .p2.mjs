@@ -1,0 +1,10 @@
+import { randomBytes } from "node:crypto";
+const B = "https://eventos-ashy-alpha.vercel.app";
+const call = async (m, p, body, cookie) => { const t0 = Date.now(); const r = await fetch(B + p, { method: m, headers: { "Content-Type": "application/json", ...(cookie ? { Cookie: cookie } : {}) }, body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(60000) }).catch((e) => ({ status: "ERRO " + e.name, text: async () => "", headers: new Headers() })); const t = await r.text(); const sc = r.headers.get("set-cookie"); return { s: r.status, ms: Date.now() - t0, t, cookie: sc ? sc.split(";")[0] : null }; };
+const pw = randomBytes(12).toString("base64url");
+let r = await call("POST", "/api/signup", { venue: "TESTE 3 VipFlow (pode excluir)", city: "Curitiba", name: "Teste automático", email: "teste3-vipflow@example.com", phone: "41999990000", password: pw });
+console.log("cadastro", r.s, r.ms + "ms", r.s === 200 ? "" : r.t.slice(0, 200)); const C = r.cookie; if (!C) process.exit(1);
+const round = async (label) => { for (const p of ["/admin/financeiro", "/api/admin/export?tipo=backup", "/admin/financeiro", "/admin/plano", "/admin/financeiro"]) { const x = await call("GET", p, null, C); console.log(label, p, x.s, x.ms + "ms"); } };
+await round("agora   ");
+await new Promise((r) => setTimeout(r, 6 * 60 * 1000));
+await round("após 6min");
