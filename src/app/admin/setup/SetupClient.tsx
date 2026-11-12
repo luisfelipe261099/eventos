@@ -19,6 +19,14 @@ export default function SetupClient({ initial }: { initial: SetupStatus }) {
   const [venue, setVenue] = useState({ name: "", city: "Curitiba", address: "" });
   const [email, setEmail] = useState("");
   const [apiKey, setApiKey] = useState("");
+  const [pw, setPw] = useState({ current: "", next: "" });
+  async function changePassword() {
+    setBusy(true); setMsg("");
+    const r = await fetch("/api/admin/password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(pw) });
+    const j = await r.json().catch(() => ({})); setBusy(false);
+    if (!r.ok) return setMsg(j.error ?? "Não foi possível trocar a senha.");
+    setPw({ current: "", next: "" }); setMsg("Senha trocada.");
+  }
   const [hook, setHook] = useState(false);
   async function setupWebhook() {
     setBusy(true); setMsg("");
@@ -96,6 +104,16 @@ export default function SetupClient({ initial }: { initial: SetupStatus }) {
             <div className="mt-1 text-xs">Chaves <code>$aact_hmlg_</code> usam o Sandbox do Asaas (testes); <code>$aact_prod_</code>, produção.</div>
           </>}
         </Row>
+        {s.mode !== "demo" && !s.root && s.venue && (
+          <Row ok title="Senha do painel">
+            Portaria, bar e painel usam o mesmo login da casa.
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              <input className="input py-2" type="password" autoComplete="current-password" placeholder="Senha atual" value={pw.current} onChange={(e) => setPw({ ...pw, current: e.target.value })} />
+              <input className="input py-2" type="password" autoComplete="new-password" placeholder="Senha nova (mín. 8)" value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} />
+              <button className="btn py-2" disabled={busy || !pw.current || pw.next.length < 8} onClick={changePassword}>Trocar senha</button>
+            </div>
+          </Row>
+        )}
         <Row ok={s.venue} title="3. Plano e taxas">
           Veja seu plano, quem paga a taxa do ingresso e a mensalidade em <Link className="text-brandl underline" href="/admin/plano">Plano</Link>.
         </Row>

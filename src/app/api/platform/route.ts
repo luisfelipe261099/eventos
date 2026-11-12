@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { body, fail, handle, ok } from "@/lib/http";
-import { isRoot, sessionCookie } from "@/lib/admin-auth";
+import { randomBytes } from "node:crypto";
+import { hashPassword, isRoot, sessionCookie } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
 import { getVenueById } from "@/lib/repo";
 import { PLANS } from "@/lib/plans";
@@ -11,7 +12,7 @@ const STATUS = ["trial", "active", "past_due", "blocked"] as const;
 /** Ações da VipFlow sobre uma casa: abrir o painel dela, trocar plano ou situação, estender o período grátis. */
 export const POST = handle(async (req: Request) => {
   if (!(await isRoot())) return fail("Não autorizado", 401);
-  const b = await body<{ venueId: string; action: "enter" | "plan" | "status" | "extend"; plan?: string; status?: string; days?: number }>(req);
+  const b = await body<{ venueId: string; action: "enter" | "plan" | "status" | "extend" | "reset_password"; plan?: string; status?: string; days?: number }>(req);
   const v = b.venueId ? await getVenueById(b.venueId) : null;
   if (!v) return fail("Casa não encontrada.", 404);
   if (b.action === "enter") {
@@ -35,6 +36,13 @@ export const POST = handle(async (req: Request) => {
     const trial_ends_at = new Date(from + days * 864e5).toISOString();
     await db().update<Venue>("venues", v.id, { trial_ends_at, plan_status: "trial" });
     return ok({ trial_ends_at });
+  }
+  if (b.action === "reset_password") {
+    // a casa esqueceu a senha: a VipFlow gera uma provisória e passa pelo WhatsApp
+    if (!v.owner_email) return fail("Esta casa não tem conta própria (sem e-mail de login).");
+    const password = randomBytes(9).toString("base64url");
+    await db().update<Venue>("venues", v.id, { password_hash: hashPassword(password) });
+    return ok({ email: v.owner_email, password });
   }
   return fail("Ação inválida.");
 });

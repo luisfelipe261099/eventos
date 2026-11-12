@@ -23,6 +23,7 @@ export default function Login() {
       {err && <p role="alert" className="text-sm text-bad">{err}</p>}
       <button className="btn" disabled={busy || !pw} onClick={go}>{busy ? "Entrando…" : "Entrar"}</button>
       <p className="mt-2 text-sm text-mut">Ainda não usa a VipFlow? <Link className="text-brandl underline" href="/cadastro">Crie a conta da sua casa</Link>: 30 dias grátis.</p>
+      <p className="text-xs text-mut">Esqueceu a senha? Peça uma nova para a VipFlow.</p>
       <p className="text-xs text-mut">Equipe VipFlow: deixe o e-mail em branco e use a senha da plataforma.</p>
     </main></div>
   );
