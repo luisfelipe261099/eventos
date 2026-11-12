@@ -2,17 +2,17 @@ import { NextResponse } from "next/server";
 import { body, fail, handle, ok } from "@/lib/http";
 import { randomBytes } from "node:crypto";
 import { hashPassword, isRoot, sessionCookie } from "@/lib/admin-auth";
-import { db } from "@/lib/db";
+import { db, pg, postgresUrl } from "@/lib/db";
 import { getVenueById } from "@/lib/repo";
 import { PLANS } from "@/lib/plans";
-import type { Venue } from "@/lib/types";
+import type { EventItem, Ticket, Venue } from "@/lib/types";
 
 const STATUS = ["trial", "active", "past_due", "blocked"] as const;
 
 /** Ações da VipFlow sobre uma casa: abrir o painel dela, trocar plano ou situação, estender o período grátis. */
 export const POST = handle(async (req: Request) => {
   if (!(await isRoot())) return fail("Não autorizado", 401);
-  const b = await body<{ venueId: string; action: "enter" | "plan" | "status" | "extend" | "reset_password"; plan?: string; status?: string; days?: number }>(req);
+  const b = await body<{ venueId: string; action: "enter" | "plan" | "status" | "extend" | "reset_password" | "delete"; plan?: string; status?: string; days?: number }>(req);
   const v = b.venueId ? await getVenueById(b.venueId) : null;
   if (!v) return fail("Casa não encontrada.", 404);
   if (b.action === "enter") {
@@ -43,6 +43,16 @@ export const POST = handle(async (req: Request) => {
     const password = randomBytes(9).toString("base64url");
     await db().update<Venue>("venues", v.id, { password_hash: hashPassword(password) });
     return ok({ email: v.owner_email, password });
+  }
+  if (b.action === "delete") {
+    // só para cadastros de teste ou abandonados: casa que já emitiu ingresso não é apagada
+    const events = await db().select<EventItem>("events", { venue_id: v.id });
+    const ids = new Set(events.map((e) => e.id));
+    const tickets = (await db().select<Ticket>("tickets")).filter((t) => ids.has(t.event_id)).length;
+    if (tickets > 0) return fail(`Esta casa já emitiu ${tickets} ingresso(s). Pause a casa em vez de excluir.`, 409);
+    if (!postgresUrl()) return fail("Exclusão disponível só com o banco conectado.", 409);
+    await pg()`delete from venues where id = ${v.id}`; // eventos, lotes, produtos e promoters saem em cascata
+    return ok({ deleted: true });
   }
   return fail("Ação inválida.");
 });

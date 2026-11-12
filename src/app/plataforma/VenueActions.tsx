@@ -28,6 +28,7 @@ export default function VenueActions({ venueId, plan, status, plans }: { venueId
       </select>
       <button className="btn-ghost py-1.5 text-xs" disabled={busy} onClick={() => act({ action: "extend", days: 30 })}>+30 dias grátis</button>
       <button className="btn-ghost py-1.5 text-xs" disabled={busy} onClick={reset}>Nova senha</button>
+      <button className="btn-ghost py-1.5 text-xs text-bad" disabled={busy} onClick={() => confirm("Excluir esta casa e tudo o que ela cadastrou? Só funciona se ela nunca emitiu ingresso.") && act({ action: "delete" })}>Excluir</button>
     </div>
   );
 }
