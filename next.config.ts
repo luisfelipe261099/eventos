@@ -2,8 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
-  // inclui os arquivos SQL na função de configuração (/api/admin/setup)
-  outputFileTracingIncludes: { "/api/admin/setup": ["./supabase/migrations/*.sql"] },
+  // inclui os arquivos SQL em todas as funções: as tabelas são criadas e atualizadas no primeiro acesso
+  outputFileTracingIncludes: { "/**": ["./supabase/migrations/*.sql"] },
   serverExternalPackages: ["postgres"],
   async headers() {
     return [{

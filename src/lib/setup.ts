@@ -20,6 +20,8 @@ export async function runMigrations() {
   const local = /localhost|127\.0\.0\.1|\/tmp\//.test(url);
   const sql = postgres(url, { ssl: local ? false : "require", max: 1, prepare: false, connect_timeout: 15, onnotice: () => {} });
   try {
+    // trava: duas funções subindo ao mesmo tempo não aplicam a mesma migração
+    await sql`select pg_advisory_lock(7461905)`;
     await sql`create table if not exists _vipflow_migrations (name text primary key, applied_at timestamptz not null default now())`;
     const done = new Set((await sql<{ name: string }[]>`select name from _vipflow_migrations`).map((r) => r.name));
     const dir = path.join(process.cwd(), "supabase", "migrations");
@@ -38,6 +40,7 @@ export async function runMigrations() {
     await sql`notify pgrst, 'reload schema'`.catch(() => {});
     return { applied, total: files.length };
   } finally {
+    await sql`select pg_advisory_unlock(7461905)`.catch(() => {});
     await sql.end({ timeout: 5 });
   }
 }

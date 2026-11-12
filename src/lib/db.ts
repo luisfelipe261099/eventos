@@ -67,24 +67,46 @@ export function pg(): Sql {
   return gp.__vfSql;
 }
 
+/**
+ * Banco pronto: na primeira consulta de cada instância, cria ou atualiza as
+ * tabelas se faltar alguma migração. Assim um deploy com migração nova não
+ * depende de ninguém clicar em "Atualizar tabelas".
+ */
+const gr = globalThis as unknown as { __vfReady?: Promise<void> };
+function ready(): Promise<void> {
+  if (!gr.__vfReady) {
+    gr.__vfReady = (async () => {
+      const { MIGRATIONS, runMigrations } = await import("./setup");
+      const done = await pg()<{ name: string }[]>`select name from _vipflow_migrations`.catch(() => []);
+      if (MIGRATIONS.every((m) => done.some((d) => d.name === m))) return;
+      await runMigrations();
+    })().catch((e) => { console.error("[migrações]", e); gr.__vfReady = undefined; });
+  }
+  return gr.__vfReady;
+}
+
 const postgresDB: DB = {
   mode: "supabase",
   async reserveTicket(id) {
+    await ready();
     const [r] = await pg()`select reserve_ticket(${id}) as ok`;
     return r?.ok === true;
   },
   async select(table, match) {
+    await ready();
     const sql = pg();
     const conds = Object.entries(match ?? {}).map(([k, v]) => sql`${sql(k)} = ${v as never}`);
     const where = conds.length ? conds.reduce((a, c) => sql`${a} and ${c}`) : sql`true`;
     return (await sql`select * from ${sql(table)} where ${where} limit 20000`) as never;
   },
   async get(table, id) {
+    await ready();
     const sql = pg();
     const [r] = await sql`select * from ${sql(table)} where id = ${id}`;
     return (r ?? null) as never;
   },
   async insert(table, rows) {
+    await ready();
     const sql = pg();
     const arr = (Array.isArray(rows) ? rows : [rows]) as unknown as Record<string, unknown>[];
     if (!arr.length) return [] as never;
@@ -93,6 +115,7 @@ const postgresDB: DB = {
     return (await sql`insert into ${sql(table)} ${sql(norm as never, cols)} returning *`) as never;
   },
   async update(table, id, patch) {
+    await ready();
     const sql = pg();
     const p = Object.fromEntries(Object.entries(patch as Record<string, unknown>).filter(([k, v]) => k !== "id" && v !== undefined));
     if (!Object.keys(p).length) return this.get(table, id);
