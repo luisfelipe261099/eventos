@@ -45,7 +45,7 @@ export default async function PlanoPage() {
       <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="Ingressos pagos" value={fees.tickets} />
         <Stat label="Vendido em ingressos" value={brl(fees.grossCents)} tone="ok" />
-        <Stat label="Taxa VipFlow" value={brl(fees.feeCents)} />
+        <Stat label="Taxa Casa Cheia" value={brl(fees.feeCents)} />
         <Stat label={platformWallet() ? "Já descontada no Pix" : "A pagar com a mensalidade"} value={brl(platformWallet() ? fees.splitCents : fees.dueCents)} />
       </div>
       {fees.dueCents > 0 && platformWallet() && <p className="mt-2 text-xs text-mut">{brl(fees.dueCents)} em taxas de vendas anteriores ao desconto automático entram na próxima mensalidade.</p>}

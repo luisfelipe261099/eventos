@@ -1,5 +1,5 @@
 /**
- * Motor de análise da VipFlow (funções puras, sem custo de IA).
+ * Motor de análise da Casa Cheia (funções puras, sem custo de IA).
  *
  * A "inteligência" de negócio é calculada aqui com regras e estatística
  * simples sobre os dados reais da casa. O modelo de linguagem (Gemini) entra

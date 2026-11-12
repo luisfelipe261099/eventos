@@ -1,4 +1,4 @@
-/** Regras de negócio da VipFlow. Fala só com db() — funciona em demo e no Supabase. */
+/** Regras de negócio da Casa Cheia. Fala só com db() — funciona em demo e no Supabase. */
 import { db, isSupabaseConfigured, uid } from "./db";
 import type { Checkin, Customer, EventItem, GuestListEntry, Invite, OrderItem, Product, Promoter, Tab, Ticket, TicketType, Venue } from "./types";
 import type { Dataset } from "./insights";
@@ -43,7 +43,7 @@ export async function getVenue(): Promise<Venue> {
 }
 /**
  * Casa da sessão atual: a que fez login no painel. No modo demo, a primeira.
- * A VipFlow (root) sem casa escolhida cai na mais antiga.
+ * A Casa Cheia (root) sem casa escolhida cai na mais antiga.
  */
 export async function getVenueOrNull(): Promise<Venue | null> {
   if (!isSupabaseConfigured()) return (await listVenues())[0] ?? null;

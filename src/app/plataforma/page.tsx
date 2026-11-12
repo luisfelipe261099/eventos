@@ -13,14 +13,14 @@ export const metadata = { title: "Plataforma", robots: { index: false } };
 
 const STATUS = { trial: ["Grátis", "brand"], active: ["Em dia", "ok"], past_due: ["Atrasada", "warn"], blocked: ["Pausada", "bad"] } as const;
 
-/** Visão da VipFlow: casas, planos, mensalidades e taxas do mês. */
+/** Visão da Casa Cheia: casas, planos, mensalidades e taxas do mês. */
 export default async function Plataforma() {
   if (!(await isRoot())) return <Login />;
   const [o, leads] = await Promise.all([platformOverview(), db().select<Lead>("leads").catch(() => [] as Lead[])]);
   const month = new Date(`${o.month}-15`).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
   return (
     <Page wide>
-      <TopBar title="Plataforma VipFlow" sub={`Casas e receita · ${month}`} back="/" />
+      <TopBar title="Plataforma Casa Cheia" sub={`Casas e receita · ${month}`} back="/" />
       <DemoBanner show={!isSupabaseConfigured()} />
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="Casas" value={o.rows.length} />
@@ -30,7 +30,7 @@ export default async function Plataforma() {
       </div>
       <p className="mt-2 text-xs text-mut">
         Taxa por ingresso: {platformWallet() ? "descontada de cada Pix pelo split do Asaas." : "sem ASAAS_SPLIT_WALLET_ID, fica como \"a faturar\"."}{" "}
-        Mensalidade: {platformCfg() ? "cobrada pela conta Asaas da VipFlow." : "sem VIPFLOW_ASAAS_API_KEY, a cobrança é manual."}
+        Mensalidade: {platformCfg() ? "cobrada pela conta Asaas da Casa Cheia." : "sem VIPFLOW_ASAAS_API_KEY, a cobrança é manual."}
       </p>
 
       <h2 className="h-display mt-8 text-xl">Casas</h2>

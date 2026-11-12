@@ -1,6 +1,7 @@
 /** Componentes do app do cliente (tema claro, flyer em primeiro plano). */
 import Link from "next/link";
 import Image from "next/image";
+import { BrandLogo } from "./Brand";
 
 const TZ = "America/Sao_Paulo";
 export const dayNum = (iso: string) => new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", timeZone: TZ });
@@ -40,7 +41,7 @@ export function AppBar({ back }: { back?: string }) {
     <header className="sticky top-0 z-30 bg-breu text-white">
       <div className="mx-auto flex h-16 max-w-5xl items-center gap-3 px-4">
         {back && <Link href={back} aria-label="Voltar" className="-ml-2 rounded-full p-2 hover:bg-white/10"><Icon name="back" size={22} /></Link>}
-        <Link href="/" aria-label="VipFlow, início" className="flex items-center"><Image src="/logo.png" alt="VipFlow" width={118} height={32} priority /></Link>
+        <Link href="/" aria-label="Casa Cheia, início" className="flex items-center"><BrandLogo h={30} /></Link>
         <Link href="/conta" className="ml-auto inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/20">
           <Icon name="user" size={18} /> Minha conta
         </Link>
@@ -63,7 +64,7 @@ export function Footer() {
     <footer className="mt-16 bg-breu text-white">
       <div className="mx-auto grid max-w-5xl gap-10 px-4 py-12 md:grid-cols-3">
         <div>
-          <Image src="/logo.png" alt="VipFlow" width={130} height={35} loading="eager" />
+          <BrandLogo h={32} />
           <p className="mt-4 max-w-xs text-sm text-white/60">Ingressos, cardápio digital e comandas para as melhores casas de Curitiba.</p>
         </div>
         <div>
@@ -87,7 +88,7 @@ export function Footer() {
           </ul>
         </div>
       </div>
-      <div className="border-t border-white/10 py-5 text-center text-xs text-white/40">© {new Date().getFullYear()} VipFlow</div>
+      <div className="border-t border-white/10 py-5 text-center text-xs text-white/40">© {new Date().getFullYear()} Casa Cheia</div>
     </footer>
   );
 }

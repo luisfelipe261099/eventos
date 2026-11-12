@@ -1,7 +1,7 @@
 import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 
 /**
- * Sessão do painel. Cada casa entra com e-mail e senha; a VipFlow (plataforma)
+ * Sessão do painel. Cada casa entra com e-mail e senha; a Casa Cheia (plataforma)
  * entra com a ADMIN_PASSWORD e pode abrir o painel de qualquer casa.
  * O cookie é "tipo.casa.validade.assinatura" (HMAC), sem estado no servidor.
  */
@@ -50,7 +50,7 @@ export async function isAdmin(): Promise<boolean> {
   if (await demo()) return true;
   return (await getSession()) !== null;
 }
-/** É a VipFlow (dona da plataforma)? */
+/** É a Casa Cheia (dona da plataforma)? */
 export async function isRoot(): Promise<boolean> {
   if (await demo()) return true;
   return (await getSession())?.root === true;

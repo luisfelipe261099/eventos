@@ -69,10 +69,10 @@ export default function SetupClient({ initial }: { initial: SetupStatus }) {
           {s.supabase && s.dbUrl && <div className="mt-3"><button className="btn" disabled={busy} onClick={migrate}>{busy ? "Aplicando…" : s.tables ? "Atualizar tabelas" : "Criar tabelas"}</button></div>}
         </Row>
         <Row ok={s.split} title="Taxa por ingresso (split do Asaas)">
-          {s.split ? "Ativo: a taxa da VipFlow sai de cada Pix direto para a carteira da plataforma." : "Sem ASAAS_SPLIT_WALLET_ID (walletId da conta Asaas da VipFlow), a taxa de cada ingresso fica registrada como \"a faturar\" e você cobra junto com a mensalidade."}
+          {s.split ? "Ativo: a taxa da Casa Cheia sai de cada Pix direto para a carteira da plataforma." : "Sem ASAAS_SPLIT_WALLET_ID (walletId da conta Asaas da Casa Cheia), a taxa de cada ingresso fica registrada como \"a faturar\" e você cobra junto com a mensalidade."}
         </Row>
         <Row ok={s.billing} title="Mensalidade automática">
-          {s.billing ? "Ativa: cada casa assina o plano e paga por Pix, boleto ou cartão na conta Asaas da VipFlow." : "Sem VIPFLOW_ASAAS_API_KEY (chave de API da conta Asaas da VipFlow), a mensalidade é cobrada por fora e nenhuma casa é pausada sozinha."}
+          {s.billing ? "Ativa: cada casa assina o plano e paga por Pix, boleto ou cartão na conta Asaas da Casa Cheia." : "Sem VIPFLOW_ASAAS_API_KEY (chave de API da conta Asaas da Casa Cheia), a mensalidade é cobrada por fora e nenhuma casa é pausada sozinha."}
         </Row>
         <Row ok={s.ai} title="IA para textos (Gemini)">
           {s.ai ? "Conectada." : "Opcional. Sem GEMINI_API_KEY, campanhas e convites usam textos prontos. A chave é grátis em aistudio.google.com."}

@@ -72,10 +72,10 @@ export default function Planos() {
         </section>
 
         <section className="mt-14">
-          <h2 className="h-display text-[30px]">VipFlow e o mercado</h2>
+          <h2 className="h-display text-[30px]">Casa Cheia e o mercado</h2>
           <div className="mt-5 overflow-x-auto rounded-[20px] bg-white">
             <table className="w-full min-w-[620px] text-left text-[15px]">
-              <thead><tr className="border-b border-linha text-sm text-nevoa"><th className="p-4 font-medium"> </th><th className="p-4 font-semibold text-violeta">VipFlow</th><th className="p-4 font-medium">Ticketeira + sistema de bar</th></tr></thead>
+              <thead><tr className="border-b border-linha text-sm text-nevoa"><th className="p-4 font-medium"> </th><th className="p-4 font-semibold text-violeta">Casa Cheia</th><th className="p-4 font-medium">Ticketeira + sistema de bar</th></tr></thead>
               <tbody>{COMPARE.map(([k, a, b]) => <tr key={k} className="border-b border-linha last:border-0"><th className="p-4 font-medium">{k}</th><td className="p-4 font-semibold">{a}</td><td className="p-4 text-nevoa">{b}</td></tr>)}</tbody>
             </table>
           </div>
@@ -87,7 +87,7 @@ export default function Planos() {
             <h2 className="h-display text-[30px]">Perguntas comuns</h2>
             <dl className="mt-5 space-y-5">
               <div><dt className="font-semibold">Quem paga a taxa do ingresso?</dt><dd className="mt-1 text-nevoa">Você escolhe no painel. Ela pode aparecer para o cliente como taxa de serviço ou sair do valor que a casa recebe.</dd></div>
-              <div><dt className="font-semibold">Quando recebo o dinheiro?</dt><dd className="mt-1 text-nevoa">Na hora. A venda é feita na conta Asaas da própria casa, então o Pix não passa pela VipFlow.</dd></div>
+              <div><dt className="font-semibold">Quando recebo o dinheiro?</dt><dd className="mt-1 text-nevoa">Na hora. A venda é feita na conta Asaas da própria casa, então o Pix não passa pela Casa Cheia.</dd></div>
               <div><dt className="font-semibold">E se eu não vender nada no mês?</dt><dd className="mt-1 text-nevoa">Paga só a mensalidade. Não existe volume mínimo.</dd></div>
               <div><dt className="font-semibold">Tem fidelidade?</dt><dd className="mt-1 text-nevoa">Não. Você troca de plano ou cancela quando quiser.</dd></div>
               <div><dt className="font-semibold">O bar e as comandas pagam taxa?</dt><dd className="mt-1 text-nevoa">Não. A taxa é só sobre ingresso pago. Cardápio e comandas já estão na mensalidade.</dd></div>

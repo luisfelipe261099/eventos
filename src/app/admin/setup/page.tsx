@@ -10,7 +10,7 @@ export default async function SetupPage() {
   const s = await setupStatus();
   return (
     <Page wide>
-      <TopBar title="Configuração" sub="Deixe a VipFlow pronta para operar" back="/" />
+      <TopBar title="Configuração" sub="Deixe a Casa Cheia pronta para operar" back="/" />
       <AdminNav active="/admin/setup" />
       <SetupClient initial={s} />
     </Page>

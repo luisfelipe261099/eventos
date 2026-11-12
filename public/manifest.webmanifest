@@ -1,11 +1,11 @@
 {
-  "name": "VipFlow",
-  "short_name": "VipFlow",
-  "description": "Check-in, cardápio digital, comandas e IA para casas de eventos.",
+  "name": "Casa Cheia",
+  "short_name": "Casa Cheia",
+  "description": "Ingressos, portaria, cardápio e comandas para casas de eventos e bares.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#070f22",
-  "theme_color": "#070f22",
+  "background_color": "#000000",
+  "theme_color": "#000000",
   "lang": "pt-BR",
   "icons": [
     { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },

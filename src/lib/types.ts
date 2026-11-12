@@ -75,9 +75,9 @@ export interface Ticket {
   /** semente secreta do QR dinâmico (HMAC). Só o dono e a portaria conhecem. */
   qr_seed: string;
   price_cents: number;
-  /** taxa da VipFlow neste ingresso (0 em ingresso grátis) */
+  /** taxa da Casa Cheia neste ingresso (0 em ingresso grátis) */
   fee_cents?: number;
-  /** true quando a taxa já foi repassada à VipFlow pelo split do Asaas */
+  /** true quando a taxa já foi repassada à Casa Cheia pelo split do Asaas */
   fee_split?: boolean;
   is_free?: boolean;
   payment_id?: string | null;

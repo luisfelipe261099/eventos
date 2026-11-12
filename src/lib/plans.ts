@@ -1,5 +1,5 @@
 /**
- * Planos da VipFlow: mensalidade + taxa por ingresso vendido.
+ * Planos da Casa Cheia: mensalidade + taxa por ingresso vendido.
  *
  * Referência de mercado (pesquisa de 11/2026): ticketeiras cobram ~10% por
  * ingresso com mínimo de R$ 2,00 a R$ 3,99 e seguram o dinheiro até depois do
@@ -24,7 +24,7 @@ export interface Plan {
 export const PLANS: Plan[] = [
   { id: "essencial", name: "Essencial", monthlyCents: 7900, feePercent: 5, feeMinCents: 100, pitch: "Para quem está começando ou faz poucos eventos por mês." },
   { id: "pro", name: "Pro", monthlyCents: 14900, feePercent: 3.5, feeMinCents: 80, pitch: "Para casas com evento toda semana." },
-  { id: "ilimitado", name: "Casa Cheia", monthlyCents: 29900, feePercent: 2, feeMinCents: 50, pitch: "Para quem vende muito ingresso: a menor taxa." },
+  { id: "ilimitado", name: "Lotado", monthlyCents: 29900, feePercent: 2, feeMinCents: 50, pitch: "Para quem vende muito ingresso: a menor taxa." },
 ];
 
 export const TRIAL_DAYS = 30;
@@ -32,7 +32,7 @@ export const DEFAULT_PLAN: PlanId = "essencial";
 
 export const getPlan = (id: string | null | undefined): Plan => PLANS.find((p) => p.id === id) ?? PLANS[0];
 
-/** Taxa da VipFlow em um ingresso. Ingresso grátis não paga nada. */
+/** Taxa da Casa Cheia em um ingresso. Ingresso grátis não paga nada. */
 export function ticketFeeCents(priceCents: number, plan: Plan): number {
   if (priceCents <= 0) return 0;
   return Math.min(priceCents, Math.max(plan.feeMinCents, Math.round((priceCents * plan.feePercent) / 100)));

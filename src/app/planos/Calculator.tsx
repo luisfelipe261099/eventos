@@ -31,7 +31,7 @@ export default function Calculator() {
         </div>
       </div>
       <div className="space-y-4" aria-live="polite">
-        {PLANS.map((p) => <div key={p.id}>{bar(`VipFlow ${p.name}`, monthlyCostCents(p, tickets, cents), true, p.id === best.id ? "melhor para você" : undefined)}</div>)}
+        {PLANS.map((p) => <div key={p.id}>{bar(`Casa Cheia ${p.name}`, monthlyCostCents(p, tickets, cents), true, p.id === best.id ? "melhor para você" : undefined)}</div>)}
         {bar("Ticketeira + sistema de bar", market, false)}
       </div>
     </div>

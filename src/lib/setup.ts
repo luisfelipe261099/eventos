@@ -57,9 +57,9 @@ export interface SetupStatus {
   payments: boolean;
   paymentsSandbox: boolean;
   split: boolean;
-  /** mensalidade cobrada automaticamente (chave Asaas da VipFlow) */
+  /** mensalidade cobrada automaticamente (chave Asaas da Casa Cheia) */
   billing: boolean;
-  /** quem está vendo é a VipFlow (plataforma) */
+  /** quem está vendo é a Casa Cheia (plataforma) */
   root: boolean;
   venues: number;
   ai: boolean;

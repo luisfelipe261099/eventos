@@ -1,9 +1,9 @@
 /**
- * Cobrança da VipFlow sobre as casas: mensalidade do plano + taxa por ingresso.
+ * Cobrança da Casa Cheia sobre as casas: mensalidade do plano + taxa por ingresso.
  *
  * - Taxa por ingresso: sai de cada venda pelo split do Asaas (ASAAS_SPLIT_WALLET_ID).
  *   Sem carteira configurada, fica registrada no ingresso e aparece como "a faturar".
- * - Mensalidade: assinatura na conta Asaas DA VIPFLOW (VIPFLOW_ASAAS_API_KEY).
+ * - Mensalidade: assinatura na conta Asaas DA CASA CHEIA (VIPFLOW_ASAAS_API_KEY).
  *   A casa paga por Pix, boleto ou cartão. Sem a chave, a cobrança é manual
  *   e nada é bloqueado sozinho.
  */
@@ -51,7 +51,7 @@ export async function subscribe(venueId: string, input: { doc: string; email: st
   const customer = v.billing_customer_id && v.doc === doc ? v.billing_customer_id
     : await ensureCustomer(cfg, { name: v.name, cpf: doc, phone: v.owner_phone, email: input.email || v.owner_email });
   const trialEnd = v.trial_ends_at ? new Date(new Date(v.trial_ends_at).getTime() - 3 * 36e5).toISOString().slice(0, 10) : todayBR();
-  const body = { value: plan.monthlyCents / 100, description: `VipFlow · plano ${plan.name}`, cycle: "MONTHLY" };
+  const body = { value: plan.monthlyCents / 100, description: `Casa Cheia · plano ${plan.name}`, cycle: "MONTHLY" };
   if (v.billing_subscription_id) {
     await asaas(cfg, `/subscriptions/${v.billing_subscription_id}`, { method: "PUT", body: { ...body, updatePendingPayments: true } });
     await db().update<Venue>("venues", venueId, { billing_customer_id: customer });
@@ -76,7 +76,7 @@ export function statusFromPayments(payments: Pick<SubPayment, "status" | "dueDat
   return paid || !trialActive ? "active" : "trial";
 }
 
-/** Consulta o Asaas da VipFlow e atualiza a situação da casa. Devolve a fatura em aberto, se houver. */
+/** Consulta o Asaas da Casa Cheia e atualiza a situação da casa. Devolve a fatura em aberto, se houver. */
 export async function syncBilling(venueId: string) {
   const cfg = platformCfg();
   const v = await venueRaw(venueId);
@@ -104,7 +104,7 @@ export async function syncAllBilling() {
   return { synced, manual: false };
 }
 
-/** Visão da VipFlow: cada casa com plano, situação e o que gerou no mês. */
+/** Visão da Casa Cheia: cada casa com plano, situação e o que gerou no mês. */
 export async function platformOverview(month = currentMonth()) {
   const venues = await listVenues();
   const rows = await Promise.all(venues.map(async (v) => ({ venue: v, plan: getPlan(v.plan), fees: await monthFees(v.id, month), trialLeft: trialDaysLeft(v) })));

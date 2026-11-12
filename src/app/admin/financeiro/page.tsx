@@ -19,7 +19,7 @@ export default async function Financeiro() {
         <Stat label="Bar pago (total)" value={brl(sum("barPaid"))} tone="ok" />
         <Stat label="Comissões de promoters" value={brl(sum("commission"))} />
         <Stat label="Estornos" value={brl(sum("refunded"))} />
-        <Stat label="Taxa VipFlow (ingressos)" value={brl(sum("fees"))} />
+        <Stat label="Taxa Casa Cheia (ingressos)" value={brl(sum("fees"))} />
       </div>
       <div className="card mt-4 flex flex-wrap items-center gap-2">
         <span className="mr-2 text-sm text-mut">Baixar planilha:</span>

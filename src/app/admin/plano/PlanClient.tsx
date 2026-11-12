@@ -26,7 +26,7 @@ export default function PlanClient({ plans, current, feeMode, hasSubscription, m
   async function subscribe() {
     const j = await post({ action: "subscribe", plan, doc: d, email: e });
     if (!j) return;
-    if (j.manual) { setMsg("Plano salvo. A VipFlow envia a cobrança da mensalidade no fim do período grátis."); setTimeout(() => location.reload(), 1200); }
+    if (j.manual) { setMsg("Plano salvo. A Casa Cheia envia a cobrança da mensalidade no fim do período grátis."); setTimeout(() => location.reload(), 1200); }
     else if (j.open?.invoiceUrl) location.href = j.open.invoiceUrl;
     else location.reload();
   }

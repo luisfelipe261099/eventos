@@ -9,7 +9,7 @@ import type { EventItem, Ticket, Venue } from "@/lib/types";
 
 const STATUS = ["trial", "active", "past_due", "blocked"] as const;
 
-/** Ações da VipFlow sobre uma casa: abrir o painel dela, trocar plano ou situação, estender o período grátis. */
+/** Ações da Casa Cheia sobre uma casa: abrir o painel dela, trocar plano ou situação, estender o período grátis. */
 export const POST = handle(async (req: Request) => {
   if (!(await isRoot())) return fail("Não autorizado", 401);
   const b = await body<{ venueId: string; action: "enter" | "plan" | "status" | "extend" | "reset_password" | "delete"; plan?: string; status?: string; days?: number }>(req);
@@ -38,7 +38,7 @@ export const POST = handle(async (req: Request) => {
     return ok({ trial_ends_at });
   }
   if (b.action === "reset_password") {
-    // a casa esqueceu a senha: a VipFlow gera uma provisória e passa pelo WhatsApp
+    // a casa esqueceu a senha: a Casa Cheia gera uma provisória e passa pelo WhatsApp
     if (!v.owner_email) return fail("Esta casa não tem conta própria (sem e-mail de login).");
     const password = randomBytes(9).toString("base64url");
     await db().update<Venue>("venues", v.id, { password_hash: hashPassword(password) });

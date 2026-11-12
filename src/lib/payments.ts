@@ -2,7 +2,7 @@
  * Pagamentos Pix via Asaas.
  *
  * Cada casa usa a PRÓPRIA chave de API do Asaas: o Pix cai direto na conta dela,
- * na hora. A taxa da VipFlow sai de cada cobrança pelo split (valor fixo) para a
+ * na hora. A taxa da Casa Cheia sai de cada cobrança pelo split (valor fixo) para a
  * carteira da plataforma (ASAAS_SPLIT_WALLET_ID).
  * - Chave $aact_hmlg_... → Sandbox (testes) | $aact_prod_... → Produção
  * - Modo demo (sem banco) ou PAYMENTS_TEST_MODE=1: pagamentos aprovados na hora.
@@ -11,9 +11,9 @@
  * copia e cola) → webhook PAYMENT_RECEIVED confirma. Como reforço, o status
  * também é consultado direto na API enquanto o cliente espera na tela.
  */
-const UA = "VipFlow/1.0 (Next.js)";
+const UA = "CasaCheia/1.0 (Next.js)";
 
-/** Credencial de uma conta Asaas (a da casa, ou a da VipFlow para as mensalidades). */
+/** Credencial de uma conta Asaas (a da casa, ou a da Casa Cheia para as mensalidades). */
 export interface AsaasCfg { apiKey: string }
 
 export const isSandboxKey = (key: string) => process.env.ASAAS_ENV === "sandbox" || key.startsWith("$aact_hmlg_");
@@ -72,7 +72,7 @@ export async function ensureCustomer(cfg: AsaasCfg, p: Payer): Promise<string> {
 /**
  * Cria a cobrança Pix na conta da casa. `cfg` nulo = sem Asaas: aprova na hora
  * (quem chama só passa nulo no modo demo ou de teste).
- * `feeCents` é a taxa da VipFlow, repassada pelo split quando a carteira da plataforma está configurada.
+ * `feeCents` é a taxa da Casa Cheia, repassada pelo split quando a carteira da plataforma está configurada.
  */
 export async function createPixCharge(cfg: AsaasCfg | null, input: { amountCents: number; feeCents?: number; description: string; externalRef: string; payer: Payer }): Promise<PixCharge & { feeSplit: boolean }> {
   if (input.amountCents <= 0) return { provider: "teste", paymentId: `free-${input.externalRef}`, status: "approved", feeSplit: false };
@@ -91,9 +91,9 @@ export async function createPixCharge(cfg: AsaasCfg | null, input: { amountCents
   return { provider: "asaas", paymentId: pay.id, status: "pending", qrCode: qr.payload, qrCodeBase64: qr.encodedImage, expiresAt: qr.expirationDate, asaasCustomerId: customer, feeSplit: Boolean(split) };
 }
 
-/** Carteira Asaas da VipFlow, para onde vai a taxa de cada ingresso. */
+/** Carteira Asaas da Casa Cheia, para onde vai a taxa de cada ingresso. */
 export const platformWallet = () => process.env.ASAAS_SPLIT_WALLET_ID || "";
-/** Split de valor fixo: a taxa da VipFlow daquela venda. Sem carteira configurada, a taxa fica registrada para faturar depois. */
+/** Split de valor fixo: a taxa da Casa Cheia daquela venda. Sem carteira configurada, a taxa fica registrada para faturar depois. */
 export function splitFor(feeCents: number): { walletId: string; fixedValue: number } | null {
   const walletId = platformWallet();
   if (!walletId || feeCents <= 0) return null;
@@ -127,7 +127,7 @@ export async function ensureWebhook(cfg: AsaasCfg, appUrl: string, email: string
   const url = `${appUrl.replace(/\/$/, "")}/api/payments/webhook?v=${encodeURIComponent(venueId)}`;
   const list = await asaas<{ data: { id: string; url: string }[] }>(cfg, "/webhooks?limit=100").catch(() => ({ data: [] }));
   const body = {
-    name: "VipFlow", url, email, enabled: true, interrupted: false, apiVersion: 3, sendType: "SEQUENTIALLY",
+    name: "Casa Cheia", url, email, enabled: true, interrupted: false, apiVersion: 3, sendType: "SEQUENTIALLY",
     authToken: await webhookToken(cfg), events: ["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED", "PAYMENT_REFUNDED", "PAYMENT_DELETED"],
   };
   const existing = list.data?.find((w) => w.url === url);

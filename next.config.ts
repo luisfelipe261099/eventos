@@ -5,14 +5,14 @@ const nextConfig: NextConfig = {
   // inclui os arquivos SQL em todas as funções: as tabelas são criadas e atualizadas no primeiro acesso
   outputFileTracingIncludes: { "/**": ["./supabase/migrations/*.sql"] },
   serverExternalPackages: ["postgres"],
-  // endereço antigo da Vercel → endereço oficial (a API fica de fora: webhooks já cadastrados não seguem redirecionamento)
+  // endereços antigos da Vercel → endereço oficial (a API fica de fora: webhooks já cadastrados não seguem redirecionamento)
   async redirects() {
-    return [{
+    return ["eventos-ashy-alpha.vercel.app", "vipflowapp.vercel.app"].map((host) => ({
       source: "/:path((?!api/).*)",
-      has: [{ type: "host", value: "eventos-ashy-alpha.vercel.app" }],
-      destination: "https://vipflowapp.vercel.app/:path",
+      has: [{ type: "host" as const, value: host }],
+      destination: "https://casacheiaapp.vercel.app/:path",
       permanent: true,
-    }];
+    }));
   },
   async headers() {
     return [{

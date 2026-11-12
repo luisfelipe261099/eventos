@@ -45,7 +45,7 @@ LEGENDA: (até 3 frases, com 2 a 4 emojis e chamada para ação)
 HASHTAGS: (5 hashtags)`;
   const fallback = `TITULO: ${input.highlight.split(" ").slice(0, 3).join(" ").toUpperCase()}
 LEGENDA: 🔥 ${input.eventName} chegando! ${input.highlight}. Garanta seu lugar pelo app e entre sem fila 🎟️
-HASHTAGS: #baladacuritiba #sextou #vipflow #openbar #rolê`;
+HASHTAGS: #baladacuritiba #sextou #casacheia #openbar #rolê`;
   const { text, source } = await generateText(prompt, fallback);
   const get = (k: string) => text.match(new RegExp(`${k}:\\s*(.+)`, "i"))?.[1]?.trim() ?? "";
   return { title: get("TITULO") || input.eventName.toUpperCase(), caption: get("LEGENDA") || text, hashtags: get("HASHTAGS"), source };

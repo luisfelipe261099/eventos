@@ -13,7 +13,7 @@ const same = (a: string, b: string) => timingSafeEqual(createHash("sha256").upda
 /**
  * Login do painel, com limite de tentativas por IP (contra força bruta).
  * - e-mail + senha: a casa entra no próprio painel.
- * - só a senha (ADMIN_PASSWORD): a VipFlow entra como plataforma.
+ * - só a senha (ADMIN_PASSWORD): a Casa Cheia entra como plataforma.
  */
 export async function POST(req: Request) {
   const ip = (req.headers.get("x-forwarded-for") ?? "local").split(",")[0].trim();

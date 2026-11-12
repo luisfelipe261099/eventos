@@ -4,9 +4,9 @@ export const metadata = { title: "Termos de uso" };
 export default function Termos() {
   return (
     <Legal title="Termos de uso" updated="novembro de 2026">
-      <p>Estes termos valem para quem compra ingressos, faz pedidos pelo cardápio digital ou usa os apps da VipFlow. Ao comprar, você concorda com eles.</p>
-      <h2>1. O que a VipFlow faz</h2>
-      <p>A VipFlow é a plataforma de tecnologia usada pela casa de eventos para vender ingressos, controlar a entrada e receber pedidos. O evento, as atrações, o cardápio e o atendimento são de responsabilidade da casa organizadora.</p>
+      <p>Estes termos valem para quem compra ingressos, faz pedidos pelo cardápio digital ou usa os apps da Casa Cheia. Ao comprar, você concorda com eles.</p>
+      <h2>1. O que a Casa Cheia faz</h2>
+      <p>A Casa Cheia é a plataforma de tecnologia usada pela casa de eventos para vender ingressos, controlar a entrada e receber pedidos. O evento, as atrações, o cardápio e o atendimento são de responsabilidade da casa organizadora.</p>
       <h2>2. Ingressos</h2>
       <ul>
         <li>O ingresso é pessoal e fica no seu celular, com um QR code que muda a cada 30 segundos. Prints não são aceitos na entrada.</li>
@@ -21,7 +21,7 @@ export default function Termos() {
       <h2>5. Cancelamento</h2>
       <p>Veja a <a className="text-violeta underline" href="/cancelamento">política de cancelamento e reembolso</a>.</p>
       <h2>6. Para casas e produtores</h2>
-      <p>A casa que usa a VipFlow paga a mensalidade do plano escolhido e uma taxa por ingresso pago, nos valores publicados em <a className="text-violeta underline" href="/planos">Planos e preços</a>. Ingressos gratuitos, cardápio e comandas não têm taxa. Não há fidelidade nem volume mínimo: a casa pode trocar de plano ou cancelar quando quiser. Com a mensalidade em atraso por mais de 10 dias, a venda online da casa fica pausada até a regularização. Os dados de clientes, vendas e consumo da casa podem ser exportados a qualquer momento pelo painel.</p>
+      <p>A casa que usa a Casa Cheia paga a mensalidade do plano escolhido e uma taxa por ingresso pago, nos valores publicados em <a className="text-violeta underline" href="/planos">Planos e preços</a>. Ingressos gratuitos, cardápio e comandas não têm taxa. Não há fidelidade nem volume mínimo: a casa pode trocar de plano ou cancelar quando quiser. Com a mensalidade em atraso por mais de 10 dias, a venda online da casa fica pausada até a regularização. Os dados de clientes, vendas e consumo da casa podem ser exportados a qualquer momento pelo painel.</p>
       <h2>7. Contato</h2>
       <p>Dúvidas sobre o evento devem ser enviadas à casa organizadora. Dúvidas sobre a plataforma, pelo canal de ajuda do app.</p>
       <p className="mt-8 text-xs text-nevoa">Modelo de referência. Revise com um advogado antes de usar comercialmente.</p>

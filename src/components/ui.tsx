@@ -1,8 +1,8 @@
 import Link from "next/link";
-import Image from "next/image";
+import { BrandLogo, BrandMark } from "./Brand";
 
 export function Logo({ h = 28 }: { h?: number }) {
-  return <Image src="/logo.png" alt="VipFlow" width={Math.round(h * 3.7)} height={h} priority />;
+  return <BrandLogo h={h} />;
 }
 
 export function TopBar({ title, sub, back }: { title: string; sub?: string; back?: string }) {
@@ -13,7 +13,7 @@ export function TopBar({ title, sub, back }: { title: string; sub?: string; back
         {sub && <div className="truncate text-xs text-mut">{sub}</div>}
         <h1 className="h-display truncate text-xl">{title}</h1>
       </div>
-      <Link href="/"><Image src="/mark.png" alt="" width={34} height={22} /></Link>
+      <Link href="/" aria-label="Casa Cheia, início"><BrandMark size={28} /></Link>
     </header>
   );
 }

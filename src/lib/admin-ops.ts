@@ -19,7 +19,7 @@ const int = (v: unknown, min = 0) => Math.max(min, Math.round(Number(v) || 0));
 export async function saveVenue(input: Partial<Venue> & { name: string }) {
   const existing = await getVenueOrNull();
   if (!existing && isSupabaseConfigured()) {
-    // casa nova só nasce pelo cadastro (/cadastro) ou pela VipFlow na primeira configuração
+    // casa nova só nasce pelo cadastro (/cadastro) ou pela Casa Cheia na primeira configuração
     const { isRoot } = await import("./admin-auth");
     if (!(await isRoot())) throw new Error("Faça login para editar a casa.");
   }

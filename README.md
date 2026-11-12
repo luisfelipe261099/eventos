@@ -1,4 +1,4 @@
-# VipFlow · MVP
+# Casa Cheia
 
 Plataforma para casas de eventos e bares: ingressos com **QR dinâmico**, **portaria que funciona sem internet**, **cardápio digital e comandas**, **app do promoter com geolocalização** e **painel com IA** (clientes VIP, produtos parados, previsão de público e campanhas).
 
@@ -39,7 +39,7 @@ npm test           # testes da IA, do QR e da geolocalização
 
 1. Crie um repositório no GitHub e envie esta pasta:
    ```bash
-   git init && git add . && git commit -m "VipFlow MVP"
+   git init && git add . && git commit -m "Casa Cheia MVP"
    git branch -M main
    git remote add origin https://github.com/SEU_USUARIO/vipflow.git
    git push -u origin main
@@ -64,13 +64,13 @@ npm test           # testes da IA, do QR e da geolocalização
 
 ## Modelo de negócio: mensalidade + taxa por ingresso
 
-A VipFlow é um SaaS: várias casas usam a mesma instalação, cada uma com a própria conta (`/cadastro`), o próprio painel e o próprio Asaas.
+A Casa Cheia é um SaaS: várias casas usam a mesma instalação, cada uma com a própria conta (`/cadastro`), o próprio painel e o próprio Asaas.
 
 | Plano | Mensalidade | Taxa por ingresso pago | Mínimo por ingresso |
 |---|---|---|---|
 | Essencial | R$ 79 | 5% | R$ 1,00 |
 | Pro | R$ 149 | 3,5% | R$ 0,80 |
-| Casa Cheia | R$ 299 | 2% | R$ 0,50 |
+| Lotado | R$ 299 | 2% | R$ 0,50 |
 
 - Os valores ficam em `src/lib/plans.ts`. Todos os planos têm todos os recursos; a diferença é o volume.
 - **Referência de mercado (11/2026):** ticketeiras cobram cerca de 10% por ingresso, com mínimo de R$ 2,00 a R$ 3,99, e repassam o dinheiro dias depois do evento. Sistemas de comanda custam de R$ 100 a R$ 300 por mês. Há um teste garantindo que nenhum volume sai mais caro que essa referência.
@@ -79,9 +79,9 @@ A VipFlow é um SaaS: várias casas usam a mesma instalação, cada uma com a pr
 - **Página de vendas:** `/planos`, com simulador de custo e formulário de contato.
 - **Visão da plataforma:** `/plataforma` (entra só com a `ADMIN_PASSWORD`, e-mail em branco). Lista as casas, mensalidades, taxas do mês e pedidos de contato; troca plano, pausa uma casa, estende o período grátis e abre o painel de qualquer casa.
 
-**Como a VipFlow recebe:**
-- **Taxa por ingresso:** com `ASAAS_SPLIT_WALLET_ID` (walletId da conta Asaas da VipFlow), a taxa sai de cada Pix pelo split, em valor fixo. Sem a variável, a taxa fica gravada no ingresso e aparece como "a faturar".
-- **Mensalidade:** com `VIPFLOW_ASAAS_API_KEY` (chave de API da conta Asaas da VipFlow), a casa assina em `/admin/plano` e paga por Pix, boleto ou cartão. Com 10 dias de atraso as vendas online da casa são pausadas, e voltam sozinhas quando ela paga. Sem a variável, a cobrança é manual e ninguém é pausado sozinho.
+**Como a Casa Cheia recebe:**
+- **Taxa por ingresso:** com `ASAAS_SPLIT_WALLET_ID` (walletId da conta Asaas da Casa Cheia), a taxa sai de cada Pix pelo split, em valor fixo. Sem a variável, a taxa fica gravada no ingresso e aparece como "a faturar".
+- **Mensalidade:** com `VIPFLOW_ASAAS_API_KEY` (chave de API da conta Asaas da Casa Cheia), a casa assina em `/admin/plano` e paga por Pix, boleto ou cartão. Com 10 dias de atraso as vendas online da casa são pausadas, e voltam sozinhas quando ela paga. Sem a variável, a cobrança é manual e ninguém é pausado sozinho.
 
 ## Pagamentos (Asaas)
 
@@ -112,7 +112,7 @@ A VipFlow é um SaaS: várias casas usam a mesma instalação, cada uma com a pr
 
 ## Design
 
-- **App do cliente (claro):** os flyers dos eventos são a cor da página. A interface usa preto, branco e cinza-claro, e o violeta VipFlow (`#8B2CF5`) aparece só no botão principal e na aba ativa.
+- **App do cliente (claro):** os flyers dos eventos são a cor da página. A interface usa preto, branco e cinza-claro, e o violeta da marca (`#8B2CF5`) aparece só no botão principal e na aba ativa.
 - **Tipografia:** Archivo, auto-hospedada via `@fontsource-variable/archivo`, sem depender do Google Fonts. Títulos na largura condensada e peso 800 (classe `.poster`), com pegada de cartaz de festa.
 - **Assinatura visual:** ingresso e comanda em formato de canhoto, com picote e recortes laterais (classes `.stub` e `.stub-cut`).
 - **Operação (escuro):** portaria, promoter e painel usam o tema escuro (`.op`), mais confortável na balada.
@@ -123,7 +123,7 @@ A VipFlow é um SaaS: várias casas usam a mesma instalação, cada uma com a pr
 | Rota | Quem usa | O que faz |
 |---|---|---|
 | `/planos` · `/cadastro` | casa interessada | Preços, simulador de custo e criação da conta |
-| `/plataforma` | VipFlow | Casas, mensalidades, taxas do mês e pedidos de contato |
+| `/plataforma` | Casa Cheia | Casas, mensalidades, taxas do mês e pedidos de contato |
 | `/admin/setup` | dono | Liga o Pix da casa e mostra o que falta |
 | `/admin/plano` | dono | Plano, quem paga a taxa e mensalidade |
 | `/admin/eventos` · `/admin/cardapio` · `/admin/promoters` · `/admin/casa` | dono | Cadastros |
@@ -180,6 +180,6 @@ supabase/
 ## Próximos passos sugeridos
 1. **Usuários por função** (portaria, bar) em cada casa, no lugar do login único do dono, e recuperação de senha por e-mail.
 2. **Cartão de crédito** no checkout, além do Pix.
-3. **Webhook da conta da VipFlow** para atualizar a mensalidade na hora (hoje a situação é conferida na rotina diária e ao abrir `/admin/plano`).
+3. **Webhook da conta da Casa Cheia** para atualizar a mensalidade na hora (hoje a situação é conferida na rotina diária e ao abrir `/admin/plano`).
 4. **Realtime:** trocar o polling do painel de comandas pelo Supabase Realtime.
 5. **Gerar imagens das campanhas** e publicar direto no Instagram (Meta Graph API).

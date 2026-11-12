@@ -6,7 +6,7 @@ import { ClientShell } from "@/components/client";
 import SignupForm from "./SignupForm";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Cadastrar minha casa", description: "Crie a conta da sua casa na VipFlow e comece a vender ingressos em minutos. 30 dias grátis." };
+export const metadata: Metadata = { title: "Cadastrar minha casa", description: "Crie a conta da sua casa na Casa Cheia e comece a vender ingressos em minutos. 30 dias grátis." };
 
 export default async function Cadastro({ searchParams }: { searchParams: Promise<{ plano?: string }> }) {
   const { plano } = await searchParams;
