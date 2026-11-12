@@ -1,4 +1,4 @@
-import { pg, postgresUrl } from "@/lib/db";
+import { postgresUrl, withDb } from "@/lib/db";
 
 export const runtime = "nodejs";
 
@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
   if (!postgresUrl() || !/^[\w-]{6,64}$/.test(id)) return new Response("Não encontrado", { status: 404 });
-  const [m] = await pg()`select mime, bytes from media where id = ${id}`;
+  const [m] = await withDb((sql) => sql`select mime, bytes from media where id = ${id}`, true);
   if (!m) return new Response("Não encontrado", { status: 404 });
   return new Response(new Uint8Array(m.bytes as Buffer), {
     headers: { "Content-Type": m.mime as string, "Cache-Control": "public, max-age=31536000, immutable" },

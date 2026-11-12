@@ -58,13 +58,37 @@ export function pg(): Sql {
     const url = postgresUrl();
     const local = /localhost|127\.0\.0\.1/.test(url);
     gp.__vfSql = postgres(url, {
-      ssl: local ? false : "require", max: 3, idle_timeout: 20, connect_timeout: 15,
+      ssl: local ? false : "require", max: 3, idle_timeout: 20, connect_timeout: 15, max_lifetime: 300, keep_alive: 30,
       prepare: false, // compatível com o pooler do Supabase (porta 6543)
       transform: { undefined: null, value: { from: (v: unknown) => (v instanceof Date ? v.toISOString() : v) } },
       onnotice: () => {},
     });
   }
   return gp.__vfSql;
+}
+
+/**
+ * Consulta com tempo limite. Em função serverless a instância congela entre
+ * acessos e o pool do banco pode derrubar o socket nesse intervalo: a consulta
+ * seguinte ficaria esperando para sempre. Passado o limite, o pool é descartado;
+ * leituras tentam mais uma vez com conexão nova, escritas devolvem erro.
+ */
+const QUERY_TIMEOUT_MS = 12_000;
+class DbTimeout extends Error { constructor() { super("O banco de dados não respondeu a tempo. Tente de novo."); } }
+export async function withDb<T>(fn: (sql: Sql) => Promise<T>, retry = false): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    const sql = pg();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([fn(sql), new Promise<never>((_, rej) => { timer = setTimeout(() => rej(new DbTimeout()), QUERY_TIMEOUT_MS); })]);
+    } catch (e) {
+      if (!(e instanceof DbTimeout)) throw e;
+      console.error(`[banco] consulta sem resposta em ${QUERY_TIMEOUT_MS} ms (tentativa ${attempt + 1}); pool descartado`);
+      if (gp.__vfSql === sql) gp.__vfSql = undefined;
+      sql.end({ timeout: 0 }).catch(() => {});
+      if (!retry || attempt >= 1) throw e;
+    } finally { clearTimeout(timer); }
+  }
 }
 
 /**
@@ -77,7 +101,7 @@ function ready(): Promise<void> {
   if (!gr.__vfReady) {
     gr.__vfReady = (async () => {
       const { MIGRATIONS, runMigrations } = await import("./setup");
-      const done = await pg()<{ name: string }[]>`select name from _vipflow_migrations`.catch(() => []);
+      const done = await withDb((sql) => sql<{ name: string }[]>`select name from _vipflow_migrations`, true).catch(() => []);
       if (MIGRATIONS.every((m) => done.some((d) => d.name === m))) return;
       await runMigrations();
     })().catch((e) => { console.error("[migrações]", e); gr.__vfReady = undefined; });
@@ -89,37 +113,35 @@ const postgresDB: DB = {
   mode: "supabase",
   async reserveTicket(id) {
     await ready();
-    const [r] = await pg()`select reserve_ticket(${id}) as ok`;
+    const [r] = await withDb((sql) => sql`select reserve_ticket(${id}) as ok`);
     return r?.ok === true;
   },
   async select(table, match) {
     await ready();
-    const sql = pg();
-    const conds = Object.entries(match ?? {}).map(([k, v]) => sql`${sql(k)} = ${v as never}`);
-    const where = conds.length ? conds.reduce((a, c) => sql`${a} and ${c}`) : sql`true`;
-    return (await sql`select * from ${sql(table)} where ${where} limit 20000`) as never;
+    return withDb(async (sql) => {
+      const conds = Object.entries(match ?? {}).map(([k, v]) => sql`${sql(k)} = ${v as never}`);
+      const where = conds.length ? conds.reduce((a, c) => sql`${a} and ${c}`) : sql`true`;
+      return (await sql`select * from ${sql(table)} where ${where} limit 20000`) as never;
+    }, true);
   },
   async get(table, id) {
     await ready();
-    const sql = pg();
-    const [r] = await sql`select * from ${sql(table)} where id = ${id}`;
+    const [r] = await withDb((sql) => sql`select * from ${sql(table)} where id = ${id}`, true);
     return (r ?? null) as never;
   },
   async insert(table, rows) {
     await ready();
-    const sql = pg();
     const arr = (Array.isArray(rows) ? rows : [rows]) as unknown as Record<string, unknown>[];
     if (!arr.length) return [] as never;
     const cols = [...new Set(arr.flatMap((r) => Object.keys(r)))];
     const norm = arr.map((r) => Object.fromEntries(cols.map((c) => [c, r[c] === undefined ? null : r[c]])));
-    return (await sql`insert into ${sql(table)} ${sql(norm as never, cols)} returning *`) as never;
+    return withDb(async (sql) => (await sql`insert into ${sql(table)} ${sql(norm as never, cols)} returning *`) as never);
   },
   async update(table, id, patch) {
     await ready();
-    const sql = pg();
     const p = Object.fromEntries(Object.entries(patch as Record<string, unknown>).filter(([k, v]) => k !== "id" && v !== undefined));
     if (!Object.keys(p).length) return this.get(table, id);
-    const [r] = await sql`update ${sql(table)} set ${sql(p as never)} where id = ${id} returning *`;
+    const [r] = await withDb((sql) => sql`update ${sql(table)} set ${sql(p as never)} where id = ${id} returning *`);
     return (r ?? null) as never;
   },
 };
