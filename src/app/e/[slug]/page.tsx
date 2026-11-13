@@ -9,7 +9,10 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const ev = await getEventBySlug((await params).slug);
-  return ev ? { title: ev.name, openGraph: { images: ev.cover_url ? [ev.cover_url] : [] } } : {};
+  if (!ev) return {};
+  const description = `${longDate(ev.starts_at)} · ${ev.venue?.name ?? ""}. Ingresso pelo Casa Cheia, com Pix.`;
+  // sem flyer, a prévia do link usa a imagem padrão do site
+  return { title: ev.name, description, openGraph: { type: "website", siteName: "Casa Cheia", locale: "pt_BR", title: ev.name, description, images: [ev.cover_url || "/og.png"] } };
 }
 
 export default async function EventPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ ref?: string }> }) {

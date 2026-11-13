@@ -32,7 +32,8 @@ export default function Planos() {
   return (
     <ClientShell bare>
       <section className="bg-breu text-white">
-        <div className="mx-auto max-w-5xl px-4 pb-14 pt-12">
+        <div className="mx-auto grid max-w-5xl items-center gap-10 px-4 pb-14 pt-12 md:grid-cols-[1fr_280px]">
+          <div>
           <p className="text-sm font-semibold uppercase tracking-[.2em] text-violeta">Para casas, bares e produtores</p>
           <h1 className="poster mt-3 max-w-3xl text-[52px] uppercase md:text-[76px]">Metade da taxa. Dinheiro na hora.</h1>
           <p className="mt-5 max-w-2xl text-lg text-white/70">Ingressos, portaria, cardápio, comandas e promoters em um só sistema. Você paga uma mensalidade pequena e uma taxa por ingresso que é a metade da cobrada pelas ticketeiras, e o Pix de cada venda cai direto na sua conta.</p>
@@ -40,6 +41,13 @@ export default function Planos() {
             <Link href="/cadastro" className="btn-primary">Começar {TRIAL_DAYS} dias grátis</Link>
             <Link href="/simular" className="inline-flex items-center rounded-full border border-white/25 px-5 py-3 text-[15px] font-medium hover:bg-white/10">Ver funcionando</Link>
           </div>
+          </div>
+          <figure className="mx-auto w-full max-w-[280px]">
+            <video className="aspect-[9/16] w-full rounded-[28px] bg-black ring-1 ring-white/15" controls playsInline preload="none" poster="/video/casa-cheia-capa.jpg" aria-label="Vídeo de apresentação do Casa Cheia, 40 segundos">
+              <source src="/video/casa-cheia.mp4" type="video/mp4" />
+            </video>
+            <figcaption className="mt-2 text-center text-sm text-white/55">Entenda em 40 segundos</figcaption>
+          </figure>
         </div>
       </section>
 
