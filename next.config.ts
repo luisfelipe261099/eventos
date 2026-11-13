@@ -16,6 +16,10 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [{
+      // link para baixar o vídeo de apresentação (o celular salva em vez de só tocar)
+      source: "/video/casa-cheia-baixar.mp4",
+      headers: [{ key: "Content-Disposition", value: 'attachment; filename="casa-cheia.mp4"' }],
+    }, {
       source: "/(.*)",
       headers: [
         { key: "X-Content-Type-Options", value: "nosniff" },
