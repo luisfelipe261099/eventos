@@ -51,3 +51,15 @@ test("sessão assinada, senha e segredo cifrado", () => {
   assert.equal(unseal(seal("$aact_prod_chave")), "$aact_prod_chave");
   assert.equal(unseal("g1.a.b.c"), null);
 });
+
+import { splitFor } from "./payments";
+test("split nunca passa do líquido do Pix", () => {
+  process.env.ASAAS_SPLIT_WALLET_ID = "carteira";
+  assert.deepEqual(splitFor(200, 4200), { walletId: "carteira", fixedValue: 2 }); // R$ 40 + taxa
+  assert.equal(splitFor(100, 200), null);   // ingresso de R$ 1 + R$ 1 de taxa: sobraria quase nada depois da tarifa do Asaas
+  assert.equal(splitFor(100, 299), null);
+  assert.deepEqual(splitFor(100, 300), { walletId: "carteira", fixedValue: 1 });
+  assert.equal(splitFor(0, 5000), null);
+  delete process.env.ASAAS_SPLIT_WALLET_ID;
+  assert.equal(splitFor(200, 4200), null);
+});

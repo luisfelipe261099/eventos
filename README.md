@@ -90,7 +90,8 @@ A Casa Cheia é um SaaS: várias casas usam a mesma instalação, cada uma com a
 - **Fluxo:** cliente no Asaas (CPF obrigatório) → cobrança `PIX` → QR Code e copia e cola → webhook `PAYMENT_RECEIVED`. Como reforço, o app consulta o status enquanto o cliente espera na tela.
 - **Quando conta como pago:** só com status `RECEIVED`, porque `CONFIRMED` em Pix pode ser bloqueio cautelar.
 - **Webhook por casa:** `/api/payments/webhook?v=ID_DA_CASA`, com token derivado da chave daquela casa. Um pagamento só quita o ingresso ou a comanda para o qual o próprio app gerou a cobrança.
-- **Ingressos não pagos:** com Pix pendente há mais de 2 horas, são cancelados pela rotina diária e a vaga volta ao lote.
+- **Ingressos não pagos:** com Pix pendente há mais de 30 minutos, a cobrança é apagada no Asaas e a vaga volta ao lote (na tentativa de compra seguinte do evento e na rotina diária). Se o Asaas disser que já foi pago, o ingresso é confirmado; se um Pix chegar depois do cancelamento, o ingresso é reativado.
+- **Ingresso barato:** se a taxa da plataforma passar do que sobra depois da tarifa do Asaas (reserva de R$ 2,00), o split não é enviado e a taxa fica como "a faturar". O Asaas calcula o split sobre o valor líquido e bloqueia o pagamento quando o split passa dele.
 
 ## Colocar em produção (dados reais)
 

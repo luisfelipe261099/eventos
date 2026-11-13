@@ -1,5 +1,5 @@
 import { body, fail, handle, ok } from "@/lib/http";
-import { createTicket, markTicketPaid, payMode, releaseTicket, venueOfEvent } from "@/lib/repo";
+import { createTicket, markTicketPaid, payMode, releaseStalePending, releaseTicket, venueOfEvent } from "@/lib/repo";
 import { createPixCharge, PaymentError } from "@/lib/payments";
 import { isValidCpf } from "@/lib/format";
 import { db } from "@/lib/db";
@@ -11,6 +11,8 @@ export const POST = handle(async (req: Request) => {
   const [venue, lot] = await Promise.all([venueOfEvent(b.eventId), db().get<TicketType>("ticket_types", b.ticketTypeId)]);
   if (!venue || !lot) return fail("Evento não encontrado.", 404);
   if (venue.plan_status === "blocked") return fail("As vendas desta casa estão pausadas no momento.", 403);
+  // Pix abandonado há mais de 30 min devolve a vaga antes de checar se o lote esgotou
+  await releaseStalePending({ eventId: b.eventId }).catch((e) => console.error("[liberar ingressos]", e));
   const mode = await payMode(venue.id);
   const paid = lot.price_cents > 0;
   if (paid && mode.kind === "off") return fail("Esta casa ainda não ativou a venda online. Fale com a casa para comprar.", 409);

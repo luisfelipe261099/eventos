@@ -78,7 +78,7 @@ export async function createPixCharge(cfg: AsaasCfg | null, input: { amountCents
   if (input.amountCents <= 0) return { provider: "teste", paymentId: `free-${input.externalRef}`, status: "approved", feeSplit: false };
   if (!cfg) return { provider: "teste", paymentId: `teste-${input.externalRef}`, status: "approved", feeSplit: false };
   const customer = await ensureCustomer(cfg, input.payer);
-  const split = splitFor(input.feeCents ?? 0);
+  const split = splitFor(input.feeCents ?? 0, input.amountCents);
   const pay = await asaas<{ id: string; status: string }>(cfg, "/payments", {
     method: "POST",
     body: {
@@ -93,11 +93,24 @@ export async function createPixCharge(cfg: AsaasCfg | null, input: { amountCents
 
 /** Carteira Asaas da Casa Cheia, para onde vai a taxa de cada ingresso. */
 export const platformWallet = () => process.env.ASAAS_SPLIT_WALLET_ID || "";
-/** Split de valor fixo: a taxa da Casa Cheia daquela venda. Sem carteira configurada, a taxa fica registrada para faturar depois. */
-export function splitFor(feeCents: number): { walletId: string; fixedValue: number } | null {
+/**
+ * Reserva para a tarifa do Asaas por Pix recebido (R$ 0,79 a R$ 1,99 conforme a conta).
+ * O Asaas calcula o split sobre o valor LÍQUIDO; se o split passar do líquido, o
+ * pagamento fica bloqueado. Por isso, em cobrança barata o split não é enviado.
+ */
+export const ASAAS_PIX_FEE_RESERVE_CENTS = 200;
+
+/** Split de valor fixo: a taxa da Casa Cheia daquela venda. Sem carteira configurada (ou cobrança barata demais), a taxa fica registrada para faturar depois. */
+export function splitFor(feeCents: number, amountCents = Number.POSITIVE_INFINITY): { walletId: string; fixedValue: number } | null {
   const walletId = platformWallet();
   if (!walletId || feeCents <= 0) return null;
+  if (feeCents > amountCents - ASAAS_PIX_FEE_RESERVE_CENTS) return null;
   return { walletId, fixedValue: feeCents / 100 };
+}
+
+/** Apaga uma cobrança ainda não paga, para o QR Code deixar de valer. */
+export async function cancelCharge(cfg: AsaasCfg, paymentId: string) {
+  await asaas(cfg, `/payments/${paymentId}`, { method: "DELETE" });
 }
 
 /** Estorna um Pix recebido (devolve o valor ao cliente). */

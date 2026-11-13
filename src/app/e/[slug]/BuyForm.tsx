@@ -57,7 +57,7 @@ export default function BuyForm({ eventId, types, referral, requireCpf, online }
       {pending.pix.qrCodeBase64 && <img alt="QR code do Pix" className="mx-auto mt-4 w-56" src={`data:image/png;base64,${pending.pix.qrCodeBase64}`} />}
       {pending.pix.qrCode && <button className="btn-line mt-4 w-full" onClick={() => { navigator.clipboard.writeText(pending.pix.qrCode!); setCopied(true); }}>{copied ? "Código copiado" : "Copiar código Pix"}</button>}
       <p className="mt-4 text-sm text-nevoa">Seu ingresso abre sozinho assim que o pagamento for confirmado. Pode deixar esta tela aberta.</p>
-      {pending.pix.expiresAt && <p className="mt-1 text-xs text-nevoa">Código válido até {new Date(pending.pix.expiresAt.replace(" ", "T") + "-03:00").toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}.</p>}
+      <p className="mt-1 text-sm font-medium">Pague em até 30 minutos. Depois disso o código deixa de valer e a vaga volta para a venda.</p>
     </div>
   );
 

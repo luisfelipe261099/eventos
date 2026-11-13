@@ -15,7 +15,7 @@ export default function Termos() {
         <li>A casa pode recusar a entrada ou retirar quem descumprir as regras do local, sem reembolso, nos limites da lei.</li>
       </ul>
       <h2>3. Pagamentos</h2>
-      <p>Os pagamentos são feitos por Pix, processados pelo Asaas, e o valor vai direto para a conta da casa. Para gerar o Pix pedimos seu CPF, exigência do meio de pagamento. Um ingresso com Pix não pago em até 2 horas é cancelado automaticamente. Quando houver taxa de serviço no ingresso, ela aparece separada do preço antes do pagamento, e o total mostrado é o total cobrado: não há outra taxa depois.</p>
+      <p>Os pagamentos são feitos por Pix, processados pelo Asaas, e o valor vai direto para a conta da casa. Para gerar o Pix pedimos seu CPF, exigência do meio de pagamento. Um ingresso com Pix não pago em até 30 minutos é cancelado automaticamente, o código Pix deixa de valer e a vaga volta para a venda. Se o pagamento ainda assim for recebido, o ingresso é liberado. Quando houver taxa de serviço no ingresso, ela aparece separada do preço antes do pagamento, e o total mostrado é o total cobrado: não há outra taxa depois.</p>
       <h2>4. Cardápio e comandas</h2>
       <p>Os pedidos feitos pelo celular entram na sua comanda e devem ser pagos antes da saída. Os preços exibidos no cardápio digital são os preços praticados pela casa no momento do pedido. A taxa de serviço, quando cobrada, aparece separada.</p>
       <h2>5. Cancelamento</h2>

@@ -5,7 +5,7 @@ import type { Dataset } from "./insights";
 import { insideGeofence } from "./geo";
 import { getSession, unseal } from "./admin-auth";
 import { getPlan, ticketTotals, type FeeMode } from "./plans";
-import { testPayments, type AsaasCfg } from "./payments";
+import { cancelCharge, getPayment, isPaidStatus, testPayments, type AsaasCfg } from "./payments";
 
 const randomSeed = () => {
   const b = new Uint8Array(isSupabaseConfigured() ? 24 : 10); crypto.getRandomValues(b);
@@ -146,6 +146,14 @@ export async function createTicket(input: { eventId: string; ticketTypeId: strin
 
 export async function markTicketPaid(ticketId: string) {
   const t = await db().get<Ticket>("tickets", ticketId);
+  if (t?.status === "cancelled" && t.payment_id && !/^(teste|free)-/.test(t.payment_id)) {
+    // o Pix foi pago depois de o ingresso ter sido liberado: quem pagou não pode ficar sem ingresso.
+    // A vaga volta a contar (o lote pode passar 1 ou 2 da quantidade nesse caso raro).
+    const tt = await db().get<TicketType>("ticket_types", t.ticket_type_id);
+    if (tt && !(await db().reserveTicket(tt.id))) await db().update<TicketType>("ticket_types", tt.id, { sold: tt.sold + 1 });
+    console.warn("[ingresso] pago depois de cancelado, reativado:", ticketId);
+    return db().update<Ticket>("tickets", ticketId, { status: "paid" });
+  }
   if (!t || t.status !== "pending") return t; // idempotente: webhook pode chegar repetido
   return db().update<Ticket>("tickets", ticketId, { status: "paid" });
 }
@@ -159,11 +167,35 @@ export async function releaseTicket(ticketId: string) {
   if (tt && tt.sold > 0) await db().update<TicketType>("ticket_types", tt.id, { sold: tt.sold - 1 });
 }
 
-/** Libera ingressos com Pix não pago há mais de 2 horas. */
-export async function releaseStalePending(maxAgeMs = 2 * 36e5) {
-  const pend = (await db().select<Ticket>("tickets", { status: "pending" })).filter((t) => Date.now() - new Date(t.created_at).getTime() > maxAgeMs);
-  for (const t of pend) await releaseTicket(t.id);
-  return pend.length;
+export const PENDING_MAX_AGE_MS = 30 * 60 * 1000;
+
+/**
+ * Libera a vaga de ingressos com Pix não pago há mais de 30 minutos.
+ * Antes, confere no Asaas: se já foi pago, confirma o ingresso; se não, apaga a
+ * cobrança (o QR Code deixa de valer) e só então libera a vaga. Se o Asaas não
+ * responder, deixa para a próxima rodada, para não cancelar um Pix que pode estar pago.
+ * Roda a cada tentativa de compra do evento e na rotina diária.
+ */
+export async function releaseStalePending(opts: { maxAgeMs?: number; eventId?: string } = {}) {
+  const maxAge = opts.maxAgeMs ?? PENDING_MAX_AGE_MS;
+  const pend = (await db().select<Ticket>("tickets", opts.eventId ? { status: "pending", event_id: opts.eventId } : { status: "pending" }))
+    .filter((t) => Date.now() - new Date(t.created_at).getTime() > maxAge);
+  let released = 0;
+  for (const t of pend) {
+    if (t.payment_id && !/^(teste|free)-/.test(t.payment_id)) {
+      const mode = await payMode((await db().get<EventItem>("events", t.event_id))?.venue_id);
+      if (mode.kind === "asaas") {
+        try {
+          const p = await getPayment(mode.cfg, t.payment_id);
+          if (isPaidStatus(p.status, p.billingType)) { await markTicketPaid(t.id); continue; }
+          if (p.status !== "REFUNDED" && !(p as { deleted?: boolean }).deleted) await cancelCharge(mode.cfg, t.payment_id);
+        } catch (e) { console.error("[liberar ingresso]", t.id, e); continue; }
+      }
+    }
+    await releaseTicket(t.id);
+    released++;
+  }
+  return released;
 }
 
 /** Aplica um pagamento confirmado pela referência externa (ticket:ID ou tab:ID). */
