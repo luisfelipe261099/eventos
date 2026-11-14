@@ -1,5 +1,5 @@
 import { fail, handle, ok } from "@/lib/http";
-import { getTab, payMode, venueOfEvent } from "@/lib/repo";
+import { confirmPayment, getTab, payMode, venueOfEvent } from "@/lib/repo";
 import { getPayment, isPaidStatus } from "@/lib/payments";
 import { db } from "@/lib/db";
 import type { Tab } from "@/lib/types";
@@ -12,7 +12,7 @@ export const GET = handle(async (_req: Request, ctx: { params: Promise<{ id: str
   if (t.tab.status === "open" && t.tab.payment_id && mode.kind === "asaas" && !t.tab.payment_id.startsWith("teste-")) {
     try {
       const p = await getPayment(mode.cfg, t.tab.payment_id);
-      if (isPaidStatus(p.status, p.billingType)) { await db().update<Tab>("tabs", id, { status: "paid" }); t = (await getTab(id))!; }
+      if (isPaidStatus(p.status, p.billingType)) { await confirmPayment("tab", id, p, mode); t = (await getTab(id))!; }
     } catch { /* o webhook confirma depois */ }
   }
   return ok({ ...t, requireCpf: mode.kind === "asaas", payOnline: mode.kind !== "off" });

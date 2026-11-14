@@ -99,7 +99,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ c
         <div className="overflow-hidden rounded-[28px] bg-breu p-7 text-white md:flex md:items-center md:justify-between md:p-10">
           <div>
             <h2 className="poster text-[38px] uppercase">Tem uma casa ou produz eventos?</h2>
-            <p className="mt-3 max-w-md text-white/70">Venda ingressos, receba o Pix direto na sua conta, controle a porta mesmo sem internet e veja o que mais vende no bar.</p>
+            <p className="mt-3 max-w-md text-white/70">Venda ingressos, receba na sua chave Pix quando quiser, controle a porta mesmo sem internet e veja o que mais vende no bar.</p>
           </div>
           <Link href="/admin" className="btn-primary mt-6 md:mt-0">Conhecer o painel</Link>
         </div>

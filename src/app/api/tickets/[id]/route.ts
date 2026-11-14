@@ -1,5 +1,5 @@
 import { fail, handle, ok } from "@/lib/http";
-import { getTicketFull, markTicketPaid, payMode } from "@/lib/repo";
+import { confirmPayment, getTicketFull, payMode } from "@/lib/repo";
 import { getPayment, isPaidStatus } from "@/lib/payments";
 
 /** Resumo público do ingresso (sem a semente do QR). Confere o Pix direto no Asaas se ainda estiver pendente. */
@@ -11,7 +11,7 @@ export const GET = handle(async (_req: Request, ctx: { params: Promise<{ id: str
   if (mode?.kind === "asaas") {
     try {
       const p = await getPayment(mode.cfg, t.ticket.payment_id!);
-      if (isPaidStatus(p.status, p.billingType)) { await markTicketPaid(id); t = (await getTicketFull(id))!; }
+      if (isPaidStatus(p.status, p.billingType)) { await confirmPayment("ticket", id, p, mode); t = (await getTicketFull(id))!; }
     } catch { /* o webhook confirma depois */ }
   }
   return ok({

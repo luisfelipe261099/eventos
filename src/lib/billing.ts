@@ -8,12 +8,12 @@
  *   e nada é bloqueado sozinho.
  */
 import { db } from "./db";
-import { asaas, ensureCustomer, todayBR, type AsaasCfg } from "./payments";
+import { asaas, ensureCustomer, platformCfg, todayBR } from "./payments";
 import { getPlan, type PlanId, PLANS } from "./plans";
 import { listVenues, venueRaw } from "./repo";
 import type { EventItem, Ticket, Venue } from "./types";
 
-export const platformCfg = (): AsaasCfg | null => (process.env.VIPFLOW_ASAAS_API_KEY ? { apiKey: process.env.VIPFLOW_ASAAS_API_KEY } : null);
+export { platformCfg };
 /** Dias de atraso da mensalidade até pausar as vendas da casa. */
 export const GRACE_DAYS = 10;
 

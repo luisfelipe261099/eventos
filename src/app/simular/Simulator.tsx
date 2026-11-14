@@ -86,7 +86,7 @@ export default function Simulator(p: Props) {
         localStorage.setItem("vf_tickets", JSON.stringify([r.data.ticketId]));
         setTicketId(r.data.ticketId);
         go("cliente", `/ingresso/${r.data.ticketId}`);
-        say("cliente", `Pix aprovado. Ingresso emitido (${brl(p.ticketPrice)}). O dinheiro vai direto para a conta da casa.`);
+        say("cliente", `Pix aprovado. Ingresso emitido (${brl(p.ticketPrice)}). O valor entra no saldo da casa na hora.`);
         reload("dono"); setStep(1);
       }),
     },

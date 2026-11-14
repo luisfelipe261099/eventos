@@ -124,8 +124,29 @@ export async function refundPayment(cfg: AsaasCfg | null, paymentId: string, des
 export const isPaidStatus = (status: string, billingType = "PIX") =>
   status === "RECEIVED" || status === "RECEIVED_IN_CASH" || (billingType !== "PIX" && status === "CONFIRMED");
 
+export interface AsaasPayment { id: string; status: string; billingType: string; externalReference: string | null; value: number; netValue?: number; deleted?: boolean; invoiceUrl?: string; dueDate?: string }
 export async function getPayment(cfg: AsaasCfg, paymentId: string) {
-  return asaas<{ id: string; status: string; billingType: string; externalReference: string | null; value: number; invoiceUrl?: string; dueDate?: string }>(cfg, `/payments/${paymentId}`);
+  return asaas<AsaasPayment>(cfg, `/payments/${paymentId}`);
+}
+
+/** Conta Asaas da plataforma (Casa Cheia): mensalidades e, no recebimento pela plataforma, as vendas das casas. */
+export const platformCfg = (): AsaasCfg | null => (process.env.VIPFLOW_ASAAS_API_KEY ? { apiKey: process.env.VIPFLOW_ASAAS_API_KEY } : null);
+export const PLATFORM_HOOK = "plataforma";
+
+export interface AsaasTransfer { id: string; status: "PENDING" | "BANK_PROCESSING" | "DONE" | "CANCELLED" | "FAILED"; value: number; netValue?: number; transferFee?: number; authorized?: boolean; failReason?: string | null }
+/** Repasse por Pix da conta da plataforma para a chave da casa. */
+export async function createPixTransfer(cfg: AsaasCfg, input: { valueCents: number; pixKey: string; pixKeyType: string; description: string }) {
+  return asaas<AsaasTransfer>(cfg, "/transfers", {
+    method: "POST",
+    body: { value: input.valueCents / 100, operationType: "PIX", pixAddressKey: input.pixKey, pixAddressKeyType: input.pixKeyType, description: input.description.slice(0, 140) },
+  });
+}
+export const getTransfer = (cfg: AsaasCfg, id: string) => asaas<AsaasTransfer>(cfg, `/transfers/${id}`);
+
+/** Token que o Asaas manda ao pedir validação de saque (Integrações → Mecanismos de segurança). */
+export async function withdrawalToken(cfg: AsaasCfg): Promise<string> {
+  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`casacheia-saque:${cfg.apiKey}`));
+  return Array.from(new Uint8Array(hash), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 /** Token do webhook derivado da chave de API: não precisa de variável extra. */
@@ -136,12 +157,12 @@ export async function webhookToken(cfg: AsaasCfg): Promise<string> {
 }
 
 /** Cadastra (ou reaproveita) o webhook de pagamentos na conta Asaas da casa. */
-export async function ensureWebhook(cfg: AsaasCfg, appUrl: string, email: string, venueId: string) {
+export async function ensureWebhook(cfg: AsaasCfg, appUrl: string, email: string, venueId: string, extraEvents: string[] = []) {
   const url = `${appUrl.replace(/\/$/, "")}/api/payments/webhook?v=${encodeURIComponent(venueId)}`;
   const list = await asaas<{ data: { id: string; url: string }[] }>(cfg, "/webhooks?limit=100").catch(() => ({ data: [] }));
   const body = {
     name: "Casa Cheia", url, email, enabled: true, interrupted: false, apiVersion: 3, sendType: "SEQUENTIALLY",
-    authToken: await webhookToken(cfg), events: ["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED", "PAYMENT_REFUNDED", "PAYMENT_DELETED"],
+    authToken: await webhookToken(cfg), events: ["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED", "PAYMENT_REFUNDED", "PAYMENT_DELETED", ...extraEvents],
   };
   const existing = list.data?.find((w) => w.url === url);
   if (existing) await asaas(cfg, `/webhooks/${existing.id}`, { method: "PUT", body });

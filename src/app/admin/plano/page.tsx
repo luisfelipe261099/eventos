@@ -55,7 +55,7 @@ export default async function PlanoPage() {
         doc={venue.doc ?? ""} email={venue.owner_email ?? ""}
         sample={{ buyer: ticketTotals(5000, plan, "buyer"), venue: ticketTotals(5000, plan, "venue"), now: sample }}
       />
-      <p className="mt-6 text-xs text-mut">Sem fidelidade: você troca de plano ou cancela quando quiser. O Pix de cada venda cai direto na conta Asaas da casa. <Link className="underline" href="/planos">Comparar planos e simular o custo</Link>.</p>
+      <p className="mt-6 text-xs text-mut">Sem fidelidade: você troca de plano ou cancela quando quiser. O dinheiro das vendas vai para a chave Pix da casa, na hora que ela pedir. <Link className="underline" href="/planos">Comparar planos e simular o custo</Link>.</p>
     </Page>
   );
 }

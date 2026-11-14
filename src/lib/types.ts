@@ -25,6 +25,10 @@ export interface Venue {
   has_asaas?: boolean;
   billing_customer_id?: string | null;
   billing_subscription_id?: string | null;
+  /** chave Pix para receber os repasses (recebimento pela conta da plataforma) */
+  pix_key?: string | null;
+  pix_key_type?: PixKeyType | null;
+  payout_auto?: boolean;
   created_at?: string;
 }
 
@@ -158,4 +162,34 @@ export interface Invite {
   reason: string;
   status: "sent" | "accepted" | "ignored";
   created_at: string;
+}
+
+export type PixKeyType = "CPF" | "CNPJ" | "EMAIL" | "PHONE" | "EVP";
+
+export interface LedgerEntry {
+  id: ID;
+  venue_id: ID;
+  kind: "sale_ticket" | "sale_tab" | "refund" | "adjust";
+  ref: string;
+  gross_cents: number;
+  asaas_fee_cents: number;
+  platform_fee_cents: number;
+  amount_cents: number;
+  note?: string | null;
+  created_at: string;
+}
+
+export interface Payout {
+  id: ID;
+  venue_id: ID;
+  value_cents: number;
+  pix_key: string;
+  pix_key_type: PixKeyType;
+  transfer_id?: string | null;
+  status: "requested" | "awaiting_authorization" | "pending" | "done" | "failed" | "cancelled";
+  fee_cents: number;
+  fail_reason?: string | null;
+  auto: boolean;
+  created_at: string;
+  updated_at: string;
 }

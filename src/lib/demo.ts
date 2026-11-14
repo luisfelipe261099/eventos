@@ -6,7 +6,7 @@
  */
 import type {
   Checkin, Customer, EventItem, GuestListEntry, Invite, OrderItem, Product,
-  Promoter, Tab, Ticket, TicketType, Venue, Lead,
+  Promoter, Tab, Ticket, TicketType, Venue, Lead, LedgerEntry, Payout,
 } from "./types";
 
 export interface DemoData {
@@ -23,6 +23,8 @@ export interface DemoData {
   order_items: OrderItem[];
   invites: Invite[];
   leads: Lead[];
+  ledger: LedgerEntry[];
+  payouts: Payout[];
 }
 
 function rng(seed: number) {
@@ -161,5 +163,5 @@ export function buildDemoData(): DemoData {
   });
 
   const invites: Invite[] = [];
-  return { venues: [venue, galpao, quintal], events, ticket_types, customers, tickets, checkins, promoters, guest_list, products, tabs, order_items, invites, leads: [] };
+  return { venues: [venue, galpao, quintal], events, ticket_types, customers, tickets, checkins, promoters, guest_list, products, tabs, order_items, invites, leads: [], ledger: [], payouts: [] };
 }

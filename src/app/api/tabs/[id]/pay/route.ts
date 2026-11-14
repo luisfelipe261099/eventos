@@ -1,5 +1,5 @@
 import { body, fail, handle, ok } from "@/lib/http";
-import { getTab, payMode, venueOfEvent } from "@/lib/repo";
+import { confirmPayment, getTab, payMode, venueOfEvent } from "@/lib/repo";
 import { asaas, cancelCharge, createPixCharge, getPayment, isPaidStatus, PaymentError } from "@/lib/payments";
 import { isValidCpf } from "@/lib/format";
 import { db } from "@/lib/db";
@@ -26,7 +26,7 @@ export const POST = handle(async (req: Request, ctx: { params: Promise<{ id: str
     if (mode.kind === "asaas" && t.tab.payment_id && !/^(teste|free)-/.test(t.tab.payment_id)) {
       const old = await getPayment(mode.cfg, t.tab.payment_id);
       if (isPaidStatus(old.status, old.billingType)) {
-        await db().transition<Tab>("tabs", id, ["open"], { status: "paid" });
+        await confirmPayment("tab", id, old, mode);
         return ok({ pix: { status: "approved" } });
       }
       if (!(old as { deleted?: boolean }).deleted && Math.round(old.value * 100) === t.total) {

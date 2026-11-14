@@ -3,6 +3,8 @@ import { runVipInvites } from "@/lib/invites";
 import { listVenues, releaseStalePending } from "@/lib/repo";
 import { isSupabaseConfigured } from "@/lib/db";
 import { syncAllBilling } from "@/lib/billing";
+import { runPayouts } from "@/lib/payouts";
+import { reconcileCustody } from "@/lib/repo";
 
 export const maxDuration = 60;
 
@@ -20,5 +22,7 @@ export const GET = handle(async (req: Request) => {
     venues.push({ venue: v.name, event: r.event, invited: r.invited.length });
   }
   const billing = await syncAllBilling().catch((e) => ({ error: String(e) }));
-  return ok({ venues, released, billing });
+  const credited = await reconcileCustody().catch((e) => ({ error: String(e) })); // venda paga que ficou sem crédito no extrato
+  const payouts = await runPayouts().catch((e) => ({ error: String(e) }));
+  return ok({ venues, released, billing, credited, payouts });
 });

@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "@fontsource-variable/archivo/standard.css";
 import "./globals.css";
 
-const DESCRIPTION = "Ingressos, portaria, cardápio e comandas em um sistema só. Metade da taxa das ticketeiras e Pix na hora, direto na conta da casa.";
+const DESCRIPTION = "Ingressos, portaria, cardápio e comandas em um sistema só. Metade da taxa das ticketeiras e o dinheiro na sua chave Pix quando você quiser.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),

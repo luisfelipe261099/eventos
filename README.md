@@ -83,9 +83,21 @@ A Casa Cheia é um SaaS: várias casas usam a mesma instalação, cada uma com a
 - **Taxa por ingresso:** com `ASAAS_SPLIT_WALLET_ID` (walletId da conta Asaas da Casa Cheia), a taxa sai de cada Pix pelo split, em valor fixo. Sem a variável, a taxa fica gravada no ingresso e aparece como "a faturar".
 - **Mensalidade:** com `VIPFLOW_ASAAS_API_KEY` (chave de API da conta Asaas da Casa Cheia), a casa assina em `/admin/plano` e paga por Pix, boleto ou cartão. Com 10 dias de atraso as vendas online da casa são pausadas, e voltam sozinhas quando ela paga. Sem a variável, a cobrança é manual e ninguém é pausado sozinho.
 
+## Recebimento pela plataforma (padrão)
+
+Com `VIPFLOW_ASAAS_API_KEY` configurada, a casa não precisa de conta Asaas: o Pix de cada venda cai na conta Asaas da Casa Cheia e a parte da casa é repassada para a chave Pix dela.
+
+- **Extrato:** cada pagamento confirmado credita a casa (tabela `ledger`) com o que o cliente pagou, menos a tarifa do Asaas (`netValue`) e a taxa da plataforma. Comanda não paga taxa. O crédito é idempotente pelo id da cobrança.
+- **Repasse:** botão **Receber agora** em `/admin/financeiro` (mínimo de R$ 5) e repasse automático na rotina diária para quem deixou ligado. Um repasse em andamento por casa (índice único). Transferência por Pix pela API (`POST /v3/transfers`), acompanhada pelos eventos `TRANSFER_*` do webhook e pela rotina diária.
+- **Estorno:** sai da conta da plataforma; a casa devolve o valor pago menos a taxa da plataforma. Se já tinha sido repassado, o saldo fica negativo e é descontado das próximas vendas.
+- **Configuração única (plataforma):** em `/plataforma`, **Configurar** liga o webhook da conta da plataforma (`/api/payments/webhook?v=plataforma`) e mostra a URL e o token da **validação de saque**. Cole os dois no Asaas em *Integrações → Mecanismos de segurança*. O endpoint `/api/payments/saque` só aprova repasses registrados pelo sistema e estorno de Pix; qualquer outra saída pela API é recusada.
+- **Conciliação diária:** venda paga nos últimos 7 dias que ficou sem crédito (webhook perdido) é creditada na rotina diária.
+- **Conta própria (opcional):** a casa ainda pode colar a chave de API do Asaas dela em `/admin/setup`; aí o Pix cai na conta dela e a taxa sai pelo split.
+- **Atenção fiscal:** todo o dinheiro das vendas entra na conta da plataforma. Confirme com o contador o enquadramento (intermediação, notas e repasses) antes de crescer, principalmente sendo MEI.
+
 ## Pagamentos (Asaas)
 
-- **Cada casa usa a própria conta Asaas.** Ela cola a chave de API em `/admin/setup`; a chave fica cifrada no banco (AES-256-GCM) e o webhook é cadastrado na hora. O Pix cai direto na conta da casa.
+- **Conta Asaas própria (opcional):** a casa cola a chave de API em `/admin/setup`; a chave fica cifrada no banco (AES-256-GCM) e o webhook é cadastrado na hora. O Pix cai direto na conta da casa.
 - **Sem a chave**, a casa só distribui ingresso grátis. Aprovação automática existe apenas no modo demo ou com `PAYMENTS_TEST_MODE=1`.
 - **Fluxo:** cliente no Asaas (CPF obrigatório) → cobrança `PIX` → QR Code e copia e cola → webhook `PAYMENT_RECEIVED`. Como reforço, o app consulta o status enquanto o cliente espera na tela.
 - **Quando conta como pago:** só com status `RECEIVED`, porque `CONFIRMED` em Pix pode ser bloqueio cautelar.

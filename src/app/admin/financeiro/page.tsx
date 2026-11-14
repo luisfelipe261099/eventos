@@ -2,18 +2,27 @@ import { financeReport } from "@/lib/finance";
 import { brl, fmtDate } from "@/lib/format";
 import { Page, Stat, TopBar } from "@/components/ui";
 import AdminNav from "../AdminNav";
+import PayoutBox from "./PayoutBox";
+import { getVenueOrNull, payMode } from "@/lib/repo";
+import { balance, MIN_PAYOUT_CENTS } from "@/lib/payouts";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Financeiro" };
 
 export default async function Financeiro() {
   const { rows, byPromoter } = await financeReport();
+  const venue = await getVenueOrNull();
+  const mode = venue ? await payMode(venue.id) : null;
+  const custody = mode?.kind === "asaas" && mode.custody;
+  const bal = custody && venue ? await balance(venue.id) : null;
   const sum = (k: "ticketRevenue" | "barPaid" | "commission" | "refunded" | "fees") => rows.reduce((s, r) => s + r[k], 0);
   const exp = [["resumo", "Resumo por evento"], ["ingressos", "Ingressos"], ["consumo", "Consumo do bar"], ["comissoes", "Comissões"], ["backup", "Backup completo (JSON)"]];
   return (
     <Page wide>
       <TopBar title="Financeiro" sub="Vendas, bar, comissões e exportação" back="/" />
       <AdminNav active="/admin/financeiro" />
+      {bal && venue && <PayoutBox availableCents={bal.availableCents} minCents={MIN_PAYOUT_CENTS} pixKey={venue.pix_key ?? ""} auto={venue.payout_auto !== false}
+        payouts={bal.payouts.sort((a, b) => b.created_at.localeCompare(a.created_at)).map((p) => ({ id: p.id, value_cents: p.value_cents, fee_cents: p.fee_cents, status: p.status, created_at: p.created_at, auto: p.auto, fail_reason: p.fail_reason }))} />}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <Stat label="Ingressos (total)" value={brl(sum("ticketRevenue"))} />
         <Stat label="Bar pago (total)" value={brl(sum("barPaid"))} tone="ok" />

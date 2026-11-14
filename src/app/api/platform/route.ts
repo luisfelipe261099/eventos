@@ -5,6 +5,7 @@ import { hashPassword, isRoot, sessionCookie } from "@/lib/admin-auth";
 import { db, pg, postgresUrl } from "@/lib/db";
 import { getVenueById } from "@/lib/repo";
 import { PLANS } from "@/lib/plans";
+import { ensureWebhook, PaymentError, platformCfg, PLATFORM_HOOK, withdrawalToken } from "@/lib/payments";
 import type { EventItem, Ticket, Venue } from "@/lib/types";
 
 const STATUS = ["trial", "active", "past_due", "blocked"] as const;
@@ -12,7 +13,21 @@ const STATUS = ["trial", "active", "past_due", "blocked"] as const;
 /** Ações da Casa Cheia sobre uma casa: abrir o painel dela, trocar plano ou situação, estender o período grátis. */
 export const POST = handle(async (req: Request) => {
   if (!(await isRoot())) return fail("Não autorizado", 401);
-  const b = await body<{ venueId: string; action: "enter" | "plan" | "status" | "extend" | "reset_password" | "delete"; plan?: string; status?: string; days?: number }>(req);
+  const b = await body<{ venueId: string; action: "enter" | "plan" | "status" | "extend" | "reset_password" | "delete" | "setup_hooks"; plan?: string; status?: string; days?: number; email?: string }>(req);
+  if (b.action === "setup_hooks") {
+    // webhook da conta da plataforma (vendas das casas, mensalidades e repasses) + dados da validação de saque
+    const cfg = platformCfg();
+    if (!cfg) return fail("Cadastre VIPFLOW_ASAAS_API_KEY (chave da conta Asaas da plataforma) na Vercel.");
+    if (!b.email?.includes("@")) return fail("Informe um e-mail para o Asaas avisar se algo falhar.");
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin).replace(/\/$/, "");
+    try {
+      const hook = await ensureWebhook(cfg, appUrl, b.email, PLATFORM_HOOK, ["TRANSFER_DONE", "TRANSFER_FAILED", "TRANSFER_CANCELLED", "TRANSFER_PENDING", "TRANSFER_IN_BANK_PROCESSING"]);
+      return ok({ webhook: hook.url, saqueUrl: `${appUrl}/api/payments/saque`, saqueToken: await withdrawalToken(cfg) });
+    } catch (e) {
+      if (e instanceof PaymentError) return fail(`O Asaas recusou: ${e.message}`, 502);
+      throw e;
+    }
+  }
   const v = b.venueId ? await getVenueById(b.venueId) : null;
   if (!v) return fail("Casa não encontrada.", 404);
   if (b.action === "enter") {

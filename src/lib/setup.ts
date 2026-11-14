@@ -9,7 +9,7 @@ import postgres from "postgres";
 import { hasSupabaseStorage, isSupabaseConfigured, pg, postgresUrl, supabaseUrl } from "./db";
 
 /** Migrações esperadas (mantenha igual aos arquivos de supabase/migrations; há teste garantindo). */
-export const MIGRATIONS = ["0001_init.sql", "0002_vitrine.sql", "0003_operacao.sql", "0004_asaas.sql", "0005_midia_seguranca.sql", "0006_saas.sql", "0007_rls_fechado.sql"];
+export const MIGRATIONS = ["0001_init.sql", "0002_vitrine.sql", "0003_operacao.sql", "0004_asaas.sql", "0005_midia_seguranca.sql", "0006_saas.sql", "0007_rls_fechado.sql", "0008_repasse.sql"];
 
 export const dbUrl = () => process.env.POSTGRES_URL_NON_POOLING || process.env.DATABASE_URL || process.env.POSTGRES_URL || "";
 void postgresUrl;
@@ -56,6 +56,11 @@ export interface SetupStatus {
   appUrl: string;
   payments: boolean;
   paymentsSandbox: boolean;
+  /** a casa recebe pela conta da plataforma (sem conta Asaas própria) */
+  custody: boolean;
+  pixKey: string;
+  pixKeyType: string;
+  payoutAuto: boolean;
   split: boolean;
   /** mensalidade cobrada automaticamente (chave Asaas da Casa Cheia) */
   billing: boolean;
@@ -106,6 +111,8 @@ export async function setupStatus(): Promise<SetupStatus> {
     payments: mode.kind === "asaas",
     split: Boolean(process.env.ASAAS_SPLIT_WALLET_ID),
     paymentsSandbox: mode.kind === "asaas" && isSandboxKey(mode.cfg.apiKey),
+    custody: mode.kind === "asaas" && mode.custody,
+    pixKey: mine?.pix_key ?? "", pixKeyType: mine?.pix_key_type ?? "", payoutAuto: mine?.payout_auto !== false,
     ai: Boolean(process.env.GEMINI_API_KEY),
     whatsapp: Boolean(process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_ID),
     supabaseHost: supabaseUrl().replace(/^https?:\/\//, "").split(".")[0] || (postgresUrl().match(/@([^:/]+)/)?.[1] ?? ""),

@@ -5,7 +5,8 @@ import type { Dataset } from "./insights";
 import { insideGeofence } from "./geo";
 import { getSession, unseal } from "./admin-auth";
 import { getPlan, ticketTotals, type FeeMode } from "./plans";
-import { cancelCharge, getPayment, isPaidStatus, testPayments, type AsaasCfg } from "./payments";
+import { cancelCharge, getPayment, isPaidStatus, platformCfg, testPayments, type AsaasCfg, type AsaasPayment } from "./payments";
+import { creditSale, debitRefund } from "./payouts";
 
 const randomSeed = () => {
   const b = new Uint8Array(isSupabaseConfigured() ? 24 : 10); crypto.getRandomValues(b);
@@ -58,16 +59,42 @@ export async function getVenueBySlug(slug: string) {
 }
 
 // ---------------------------------------------------------------- plano e pagamentos da casa
-export type PayMode = { kind: "asaas"; cfg: AsaasCfg } | { kind: "teste" } | { kind: "off" };
+export type PayMode = { kind: "asaas"; cfg: AsaasCfg; custody: boolean } | { kind: "teste" } | { kind: "off" };
 /**
- * Como a casa recebe: Asaas (chave dela), teste (demo: aprova na hora) ou
- * desligado (produção sem chave: não vende ingresso pago).
+ * Como a casa recebe:
+ * - conta Asaas própria (a casa colou a chave): o Pix cai na conta dela e a taxa sai pelo split;
+ * - pela plataforma (custody): o Pix cai na conta da Casa Cheia e o saldo é repassado à chave Pix da casa;
+ * - teste (demo): aprova na hora; desligado: produção sem nenhuma conta, não vende ingresso pago.
  */
 export async function payMode(venueId: string | null | undefined): Promise<PayMode> {
   const v = venueId ? await venueRaw(venueId) : null;
   const key = unseal(v?.asaas_key_enc);
-  if (key) return { kind: "asaas", cfg: { apiKey: key } };
+  if (key) return { kind: "asaas", cfg: { apiKey: key }, custody: false };
+  const platform = platformCfg();
+  if (platform && isSupabaseConfigured() && !testPayments()) return { kind: "asaas", cfg: platform, custody: true };
   return !isSupabaseConfigured() || testPayments() ? { kind: "teste" } : { kind: "off" };
+}
+
+/**
+ * Pagamento confirmado no Asaas: libera o ingresso (ou fecha a comanda) e, quando o
+ * dinheiro caiu na conta da plataforma, credita a parte da casa no extrato.
+ */
+export async function confirmPayment(kind: "ticket" | "tab", refId: string, payment: AsaasPayment, mode: PayMode) {
+  if (kind === "ticket") await markTicketPaid(refId);
+  else await db().transition<Tab>("tabs", refId, ["open"], { status: "paid", payment_id: payment.id });
+  if (mode.kind !== "asaas" || !mode.custody) return;
+  const row = kind === "ticket" ? await db().get<Ticket>("tickets", refId) : await db().get<Tab>("tabs", refId);
+  const ev = row ? await db().get<EventItem>("events", row.event_id) : null;
+  if (!row || !ev) return;
+  await creditSale({
+    venueId: ev.venue_id, kind, payment, note: kind === "ticket" ? `Ingresso · ${ev.name}` : `Comanda · ${(row as Tab).table_label}`,
+    platformFeeCents: kind === "ticket" ? (row as Ticket).fee_cents ?? 0 : 0,
+  });
+}
+
+/** Estorno de uma cobrança feita pela conta da plataforma: tira do saldo da casa. */
+export async function chargeBackToVenue(paymentId: string, mode: PayMode) {
+  if (mode.kind === "asaas" && mode.custody) await debitRefund(paymentId);
 }
 export const venuePlan = (v: Pick<Venue, "plan"> | null | undefined) => getPlan(v?.plan);
 export const venueFeeMode = (v: Pick<Venue, "fee_mode"> | null | undefined): FeeMode => (v?.fee_mode === "venue" ? "venue" : "buyer");
@@ -201,7 +228,7 @@ export async function releaseStalePending(opts: { maxAgeMs?: number; eventId?: s
       if (mode.kind === "asaas") {
         try {
           const p = await getPayment(mode.cfg, t.payment_id);
-          if (isPaidStatus(p.status, p.billingType)) { await markTicketPaid(t.id); continue; }
+          if (isPaidStatus(p.status, p.billingType)) { await confirmPayment("ticket", t.id, p, mode); continue; }
           if (p.status !== "REFUNDED" && !(p as { deleted?: boolean }).deleted) await cancelCharge(mode.cfg, t.payment_id);
         } catch (e) { console.error("[liberar ingresso]", t.id, e); continue; }
       }
@@ -218,26 +245,38 @@ export async function releaseStalePending(opts: { maxAgeMs?: number; eventId?: s
  * comanda E se ele for da casa dona do webhook: uma casa não consegue quitar o
  * ingresso de outra apontando a referência.
  */
-export async function applyPaymentRef(externalRef: string | null | undefined, paymentId: string, venueId: string, outcome: "paid" | "refunded" | "deleted" = "paid") {
-  if (!externalRef) return null;
-  const [kind, ref] = externalRef.split(":");
-  const mine = async (eventId: string) => (await db().get<EventItem>("events", eventId))?.venue_id === venueId;
-  // a cobrança veio da conta Asaas da própria casa; payment_id vazio = o processo caiu antes de gravá-lo
-  const same = (current: string | null | undefined) => !current || current === paymentId;
+/**
+ * Aplica um evento de pagamento vindo do webhook. `hookVenueId` é a casa dona da conta Asaas
+ * do webhook; null quando o webhook é o da conta da plataforma (aí a cobrança precisa ser de
+ * uma casa que recebe pela plataforma). Só vale para a cobrança que o próprio app gerou.
+ */
+export async function applyPaymentRef(payment: AsaasPayment, mode: PayMode, hookVenueId: string | null, outcome: "paid" | "refunded" | "deleted" = "paid") {
+  if (!payment.externalReference || mode.kind !== "asaas") return null;
+  const [kind, ref] = payment.externalReference.split(":");
+  const mine = async (eventId: string) => {
+    const venueId = (await db().get<EventItem>("events", eventId))?.venue_id;
+    if (!venueId) return false;
+    if (hookVenueId) return venueId === hookVenueId;
+    const m = await payMode(venueId);
+    return m.kind === "asaas" && m.custody;
+  };
+  // a cobrança veio da conta certa; payment_id vazio = o processo caiu antes de gravá-lo
+  const same = (current: string | null | undefined) => !current || current === payment.id;
   if (kind === "ticket") {
     const t = await db().get<Ticket>("tickets", ref);
     if (!t || !same(t.payment_id) || !(await mine(t.event_id))) return null;
-    if (!t.payment_id) await db().update<Ticket>("tickets", ref, { payment_id: paymentId });
-    if (outcome === "paid") await markTicketPaid(ref);
-    else if (outcome === "refunded") await markTicketRefunded(ref);
+    if (!t.payment_id) await db().update<Ticket>("tickets", ref, { payment_id: payment.id });
+    if (outcome === "paid") await confirmPayment("ticket", ref, payment, mode);
+    else if (outcome === "refunded") { await markTicketRefunded(ref); await chargeBackToVenue(payment.id, mode); }
     else await releaseTicket(ref);
     return "ticket";
   }
   if (kind === "tab") {
     const t = await db().get<Tab>("tabs", ref);
     if (!t || !same(t.payment_id) || !(await mine(t.event_id))) return null;
-    if (outcome === "paid") await db().transition<Tab>("tabs", ref, ["open"], { status: "paid", payment_id: paymentId });
-    else if (outcome === "deleted" && t.payment_id === paymentId) await db().update<Tab>("tabs", ref, { payment_id: null });
+    if (outcome === "paid") await confirmPayment("tab", ref, payment, mode);
+    else if (outcome === "refunded") await chargeBackToVenue(payment.id, mode);
+    else if (outcome === "deleted" && t.payment_id === payment.id) await db().update<Tab>("tabs", ref, { payment_id: null });
     return "tab";
   }
   return null;
@@ -362,7 +401,7 @@ export async function openOrAddToTab(input: { tabId?: string | null; eventId: st
     if (mode.kind === "asaas") {
       const p = await getPayment(mode.cfg, tab.payment_id);
       if (isPaidStatus(p.status, p.billingType)) {
-        await db().transition<Tab>("tabs", tab.id, ["open"], { status: "paid" });
+        await confirmPayment("tab", tab.id, p, mode);
         tab = null; // já pago: os itens novos vão para uma comanda nova
       } else {
         await cancelCharge(mode.cfg, tab.payment_id).catch((e) => console.error("[comanda] apagar Pix", e));
@@ -456,4 +495,28 @@ export async function liveStats(eventId: string) {
   for (const c of checkins) { const h = (new Date(c.at).getUTCHours() + 21) % 24; byHour.set(h, (byHour.get(h) ?? 0) + 1); }
   const hours = [22, 23, 0, 1, 2, 3, 4].map((h) => ({ h, n: byHour.get(h) ?? 0 }));
   return { sold: tickets.length, inside: checkins.length, ticketRevenue, barRevenue, openTabs, hours, ds };
+}
+
+/**
+ * Conciliação diária do recebimento pela plataforma: ingresso ou comanda pagos nos
+ * últimos 7 dias cuja venda não entrou no extrato (webhook perdido, por exemplo).
+ */
+export async function reconcileCustody() {
+  const platform = platformCfg();
+  if (!platform) return { checked: 0, credited: 0 };
+  const since = Date.now() - 7 * 864e5;
+  const credited = new Set([...(await db().select<{ id: string; ref: string }>("ledger")).map((e) => e.ref)]);
+  const tickets = (await db().select<Ticket>("tickets")).filter((t) => (t.status === "paid" || t.status === "used") && t.payment_id && !/^(teste|free)-/.test(t.payment_id) && !credited.has(t.payment_id) && new Date(t.created_at).getTime() > since);
+  const tabs = (await db().select<Tab>("tabs", { status: "paid" })).filter((t) => t.payment_id && !/^(teste|free)-/.test(t.payment_id) && !credited.has(t.payment_id) && new Date(t.opened_at).getTime() > since);
+  let n = 0;
+  for (const [kind, row] of [...tickets.map((t) => ["ticket", t] as const), ...tabs.map((t) => ["tab", t] as const)]) {
+    const ev = await db().get<EventItem>("events", row.event_id);
+    const mode = await payMode(ev?.venue_id);
+    if (mode.kind !== "asaas" || !mode.custody) continue;
+    try {
+      const p = await getPayment(mode.cfg, row.payment_id!);
+      if (isPaidStatus(p.status, p.billingType)) { await confirmPayment(kind, row.id, p, mode); n++; }
+    } catch (e) { console.error("[conciliação]", row.id, e); }
+  }
+  return { checked: tickets.length + tabs.length, credited: n };
 }

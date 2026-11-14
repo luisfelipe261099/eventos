@@ -7,6 +7,8 @@ import type { Lead } from "@/lib/types";
 import { DemoBanner, Page, Pill, Stat, TopBar } from "@/components/ui";
 import Login from "../admin/Login";
 import VenueActions from "./VenueActions";
+import HooksSetup from "./HooksSetup";
+import { balance } from "@/lib/payouts";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Plataforma", robots: { index: false } };
@@ -17,6 +19,10 @@ const STATUS = { trial: ["Grátis", "brand"], active: ["Em dia", "ok"], past_due
 export default async function Plataforma() {
   if (!(await isRoot())) return <Login />;
   const [o, leads] = await Promise.all([platformOverview(), db().select<Lead>("leads").catch(() => [] as Lead[])]);
+  // saldo a repassar das casas que recebem pela conta da plataforma
+  const custodyBal = new Map<string, number>();
+  if (platformCfg()) for (const r of o.rows) if (!r.venue.has_asaas) custodyBal.set(r.venue.id, (await balance(r.venue.id)).availableCents);
+  const toRepass = [...custodyBal.values()].reduce((s, v) => s + Math.max(0, v), 0);
   const month = new Date(`${o.month}-15`).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
   return (
     <Page wide>
@@ -26,26 +32,28 @@ export default async function Plataforma() {
         <Stat label="Casas" value={o.rows.length} />
         <Stat label="Mensalidades (casas pagantes)" value={brl(o.mrrCents)} tone="ok" />
         <Stat label="Taxas de ingresso no mês" value={brl(o.feeCents)} tone="brand" />
-        <Stat label="Taxas a faturar" value={brl(o.dueCents)} />
+        <Stat label="A repassar às casas" value={brl(toRepass)} />
       </div>
       <p className="mt-2 text-xs text-mut">
         Taxa por ingresso: {platformWallet() ? "descontada de cada Pix pelo split do Asaas." : "sem ASAAS_SPLIT_WALLET_ID, fica como \"a faturar\"."}{" "}
         Mensalidade: {platformCfg() ? "cobrada pela conta Asaas da Casa Cheia." : "sem VIPFLOW_ASAAS_API_KEY, a cobrança é manual."}
       </p>
 
+      {platformCfg() && <HooksSetup />}
+
       <h2 className="h-display mt-8 text-xl">Casas</h2>
       <div className="mt-3 overflow-x-auto rounded-2xl border border-line">
         <table className="w-full min-w-[900px] text-sm">
-          <thead className="bg-white/5 text-left text-xs text-mut"><tr><th className="p-3">Casa</th><th className="p-3">Plano</th><th className="p-3">Situação</th><th className="p-3">Ingressos pagos</th><th className="p-3">Vendido</th><th className="p-3">Taxa</th><th className="p-3">A faturar</th><th className="p-3">Ações</th></tr></thead>
+          <thead className="bg-white/5 text-left text-xs text-mut"><tr><th className="p-3">Casa</th><th className="p-3">Plano</th><th className="p-3">Situação</th><th className="p-3">Ingressos pagos</th><th className="p-3">Vendido</th><th className="p-3">Taxa</th><th className="p-3">A repassar</th><th className="p-3">Ações</th></tr></thead>
           <tbody>
             {o.rows.map((r) => {
               const [label, tone] = STATUS[(r.venue.plan_status ?? "trial") as keyof typeof STATUS] ?? STATUS.trial;
               return (
                 <tr key={r.venue.id} className="border-t border-line align-top">
-                  <td className="p-3"><div className="font-medium">{r.venue.name}</div><div className="text-xs text-mut">{r.venue.owner_email ?? "sem conta própria"}{r.venue.owner_phone ? ` · ${r.venue.owner_phone}` : ""}</div><div className="text-xs text-mut">{r.venue.has_asaas ? "Pix ligado" : "Pix desligado"}</div></td>
+                  <td className="p-3"><div className="font-medium">{r.venue.name}</div><div className="text-xs text-mut">{r.venue.owner_email ?? "sem conta própria"}{r.venue.owner_phone ? ` · ${r.venue.owner_phone}` : ""}</div><div className="text-xs text-mut">{r.venue.has_asaas ? "conta Asaas própria" : "recebe pela plataforma"}</div></td>
                   <td className="p-3">{r.plan.name}<div className="text-xs text-mut">{brl(r.plan.monthlyCents)} + {String(r.plan.feePercent).replace(".", ",")}%</div></td>
                   <td className="p-3"><Pill tone={tone}>{label}</Pill>{r.venue.plan_status === "trial" && <div className="mt-1 text-xs text-mut">{r.trialLeft} dia(s)</div>}</td>
-                  <td className="p-3">{r.fees.tickets}</td><td className="p-3">{brl(r.fees.grossCents)}</td><td className="p-3">{brl(r.fees.feeCents)}</td><td className="p-3 text-warn">{r.fees.dueCents ? brl(r.fees.dueCents) : "—"}</td>
+                  <td className="p-3">{r.fees.tickets}</td><td className="p-3">{brl(r.fees.grossCents)}</td><td className="p-3">{brl(r.fees.feeCents)}</td><td className="p-3 text-warn">{custodyBal.has(r.venue.id) ? brl(custodyBal.get(r.venue.id)!) : r.fees.dueCents ? `${brl(r.fees.dueCents)} a faturar` : "—"}<div className="text-xs text-mut">{r.venue.has_asaas ? "conta própria" : r.venue.pix_key ? `Pix ${r.venue.pix_key_type}` : "sem chave Pix"}</div></td>
                   <td className="p-3"><VenueActions venueId={r.venue.id} plan={r.plan.id} status={r.venue.plan_status ?? "trial"} plans={o.plans.map((p) => ({ id: p.id, name: p.name }))} /></td>
                 </tr>
               );

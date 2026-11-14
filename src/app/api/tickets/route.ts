@@ -23,7 +23,8 @@ export const POST = handle(async (req: Request) => {
   const { ticket, ticketType, customer, chargeCents } = await createTicket({ eventId: b.eventId, ticketTypeId: b.ticketTypeId, name: b.name.trim(), phone: b.phone.trim(), cpf: needCpf ? b.cpf : null, promoterId: b.ref || null });
   try {
     const pix = await createPixCharge(mode.kind === "asaas" ? mode.cfg : null, {
-      amountCents: chargeCents, feeCents: ticket.fee_cents ?? 0, description: `Ingresso ${ticketType.name}`, externalRef: `ticket:${ticket.id}`,
+      // pela plataforma a taxa já fica na conta: sem split (o Asaas recusa split para a própria carteira)
+      amountCents: chargeCents, feeCents: mode.kind === "asaas" && mode.custody ? 0 : ticket.fee_cents ?? 0, description: `Ingresso ${ticketType.name}`, externalRef: `ticket:${ticket.id}`,
       // o cadastro no Asaas é por conta: cada casa tem o próprio, então não reaproveita id entre casas
       payer: { name: customer.name, cpf: customer.cpf, phone: customer.phone, email: customer.email },
     });

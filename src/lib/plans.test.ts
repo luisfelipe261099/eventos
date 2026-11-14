@@ -63,3 +63,16 @@ test("split nunca passa do líquido do Pix", () => {
   delete process.env.ASAAS_SPLIT_WALLET_ID;
   assert.equal(splitFor(200, 4200), null);
 });
+
+import { normalizePixKey } from "./payouts";
+test("chave Pix normalizada e validada", () => {
+  assert.deepEqual(normalizePixKey("CPF", "529.982.247-25"), { type: "CPF", key: "52998224725" });
+  assert.equal(normalizePixKey("CPF", "111.111.111-11"), null);
+  assert.deepEqual(normalizePixKey("CNPJ", "11.222.333/0001-81"), { type: "CNPJ", key: "11222333000181" });
+  assert.equal(normalizePixKey("CNPJ", "11.222.333/0001-80"), null);
+  assert.deepEqual(normalizePixKey("EMAIL", " Casa@Bar.com "), { type: "EMAIL", key: "casa@bar.com" });
+  assert.deepEqual(normalizePixKey("PHONE", "(41) 99876-5432"), { type: "PHONE", key: "+5541998765432" });
+  assert.equal(normalizePixKey("PHONE", "1234"), null);
+  assert.ok(normalizePixKey("EVP", "123e4567-e89b-12d3-a456-426614174000"));
+  assert.equal(normalizePixKey("XYZ", "a"), null);
+});

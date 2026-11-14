@@ -1,6 +1,6 @@
 import { body, fail, guardAdmin, handle, ok } from "@/lib/http";
 import { db } from "@/lib/db";
-import { markTicketRefunded, ownedEvent, payMode, releaseTicket } from "@/lib/repo";
+import { chargeBackToVenue, markTicketRefunded, ownedEvent, payMode, releaseTicket } from "@/lib/repo";
 import { refundPayment, PaymentError } from "@/lib/payments";
 import type { Ticket } from "@/lib/types";
 
@@ -20,7 +20,11 @@ export const POST = handle(async (req: Request) => {
     if (t.status === "used") return fail("Este ingresso já foi usado na entrada e não pode ser estornado.");
     if (t.status !== "paid") return fail("Só é possível estornar ingressos pagos.");
     try {
-      if (t.price_cents > 0 && t.payment_id) { const mode = await payMode(ev.venue_id); await refundPayment(mode.kind === "asaas" ? mode.cfg : null, t.payment_id); }
+      if (t.price_cents > 0 && t.payment_id) {
+        const mode = await payMode(ev.venue_id);
+        await refundPayment(mode.kind === "asaas" ? mode.cfg : null, t.payment_id);
+        await chargeBackToVenue(t.payment_id, mode); // recebimento pela plataforma: sai do saldo da casa
+      }
     } catch (e) {
       if (e instanceof PaymentError) return fail(`O Asaas recusou o estorno: ${e.message}`, 502);
       throw e;
