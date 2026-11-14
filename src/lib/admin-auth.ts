@@ -17,10 +17,12 @@ const DAYS = 14;
 const rawSecret = () => {
   const s = process.env.SESSION_SECRET || process.env.SUPABASE_JWT_SECRET;
   if (s && s.length >= 24) return s;
-  if (process.env.VERCEL_ENV === "production" && (process.env.POSTGRES_URL || process.env.DATABASE_URL)) {
-    throw new Error("Configure SESSION_SECRET (24+ caracteres) nas variáveis da Vercel.");
+  // banco real em modo de produção (Vercel ou não): sem segredo forte, não assina nada
+  const realDb = Boolean(process.env.POSTGRES_URL || process.env.DATABASE_URL || ((process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL) && process.env.SUPABASE_SERVICE_ROLE_KEY));
+  if (realDb && (process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production")) {
+    throw new Error("Configure SESSION_SECRET (24+ caracteres) nas variáveis de ambiente.");
   }
-  return "casa-cheia-desenvolvimento";
+  return "casa-cheia-desenvolvimento"; // só desenvolvimento local ou demonstração sem banco
 };
 const secret = () => createHash("sha256").update(`vipflow:${rawSecret()}`).digest();
 
