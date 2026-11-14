@@ -9,7 +9,7 @@ import postgres from "postgres";
 import { hasSupabaseStorage, isSupabaseConfigured, pg, postgresUrl, supabaseUrl } from "./db";
 
 /** Migrações esperadas (mantenha igual aos arquivos de supabase/migrations; há teste garantindo). */
-export const MIGRATIONS = ["0001_init.sql", "0002_vitrine.sql", "0003_operacao.sql", "0004_asaas.sql", "0005_midia_seguranca.sql", "0006_saas.sql"];
+export const MIGRATIONS = ["0001_init.sql", "0002_vitrine.sql", "0003_operacao.sql", "0004_asaas.sql", "0005_midia_seguranca.sql", "0006_saas.sql", "0007_rls_fechado.sql"];
 
 export const dbUrl = () => process.env.POSTGRES_URL_NON_POOLING || process.env.DATABASE_URL || process.env.POSTGRES_URL || "";
 void postgresUrl;

@@ -1,6 +1,6 @@
 import { body, fail, handle, ok } from "@/lib/http";
 import { getTab, payMode, venueOfEvent } from "@/lib/repo";
-import { createPixCharge, PaymentError } from "@/lib/payments";
+import { asaas, cancelCharge, createPixCharge, getPayment, isPaidStatus, PaymentError } from "@/lib/payments";
 import { isValidCpf } from "@/lib/format";
 import { db } from "@/lib/db";
 import type { Customer, Tab } from "@/lib/types";
@@ -23,6 +23,19 @@ export const POST = handle(async (req: Request, ctx: { params: Promise<{ id: str
     if (!customer.cpf) return fail("Informe o CPF para pagar com Pix.", 422);
   }
   try {
+    if (mode.kind === "asaas" && t.tab.payment_id && !/^(teste|free)-/.test(t.tab.payment_id)) {
+      const old = await getPayment(mode.cfg, t.tab.payment_id);
+      if (isPaidStatus(old.status, old.billingType)) {
+        await db().transition<Tab>("tabs", id, ["open"], { status: "paid" });
+        return ok({ pix: { status: "approved" } });
+      }
+      if (!(old as { deleted?: boolean }).deleted && Math.round(old.value * 100) === t.total) {
+        // mesmo total: devolve o mesmo Pix, para o cliente não ficar com dois códigos
+        const qr = await asaas<{ encodedImage: string; payload: string; expirationDate: string }>(mode.cfg, `/payments/${old.id}/pixQrCode`);
+        return ok({ pix: { provider: "asaas", paymentId: old.id, status: "pending", qrCode: qr.payload, qrCodeBase64: qr.encodedImage, expiresAt: qr.expirationDate } });
+      }
+      if (!(old as { deleted?: boolean }).deleted) await cancelCharge(mode.cfg, old.id); // total mudou: o código antigo deixa de valer
+    }
     const pix = await createPixCharge(mode.kind === "asaas" ? mode.cfg : null, {
       amountCents: t.total, description: `Comanda ${t.tab.table_label}`, externalRef: `tab:${id}`,
       payer: { name: customer.name, cpf: customer.cpf, phone: customer.phone, email: customer.email },

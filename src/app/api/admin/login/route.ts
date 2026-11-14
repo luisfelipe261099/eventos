@@ -17,8 +17,12 @@ const same = (a: string, b: string) => timingSafeEqual(createHash("sha256").upda
  */
 export async function POST(req: Request) {
   const ip = (req.headers.get("x-forwarded-for") ?? "local").split(",")[0].trim();
-  if ((await attempts(ip, WINDOW_MIN)) >= MAX) return NextResponse.json({ error: `Muitas tentativas. Aguarde ${WINDOW_MIN} minutos.` }, { status: 429 });
   const { email, password } = await body<{ email?: string; password: string }>(req);
+  const target = email?.trim() ? `email:${email.trim().toLowerCase()}` : "root";
+  // três contadores: o IP contra este alvo, o IP no total (não zera ao acertar outra conta) e o alvo no total
+  const keys = { pair: `${ip}|${target}`, ip: `ip:${ip}`, target: `alvo:${target}` };
+  const [nPair, nIp, nTarget] = await Promise.all([attempts(keys.pair, WINDOW_MIN), attempts(keys.ip, WINDOW_MIN), attempts(keys.target, WINDOW_MIN)]);
+  if (nPair >= MAX || nIp >= MAX * 3 || nTarget >= MAX * 5) return NextResponse.json({ error: `Muitas tentativas. Aguarde ${WINDOW_MIN} minutos.` }, { status: 429 });
   let session: Session | null = null;
   if (typeof password === "string" && password) {
     if (email?.trim() && isSupabaseConfigured()) {
@@ -30,11 +34,11 @@ export async function POST(req: Request) {
     }
   }
   if (!session) {
-    await registerAttempt(ip);
+    await Promise.all([registerAttempt(keys.pair), registerAttempt(keys.ip), registerAttempt(keys.target)]);
     await new Promise((r) => setTimeout(r, 600));
     return NextResponse.json({ error: email?.trim() ? "E-mail ou senha incorretos" : "Senha incorreta" }, { status: 401 });
   }
-  await clearAttempts(ip);
+  await clearAttempts(keys.pair); // só o par IP + esta conta; os outros contadores expiram sozinhos
   const res = NextResponse.json({ ok: true, root: session.root });
   const c = sessionCookie(session);
   res.cookies.set(c.name, c.value, c.options);

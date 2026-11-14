@@ -17,6 +17,8 @@ export const POST = handle(async (req: Request) => {
   try {
     if (key) {
       if (!/^\$aact_/.test(key)) return fail("Esta não parece uma chave de API do Asaas (começa com $aact_).");
+      if (key.startsWith("$aact_hmlg_") && process.env.VERCEL_ENV === "production" && process.env.ALLOW_SANDBOX_KEYS !== "1")
+        return fail("Esta é uma chave de testes (Sandbox) do Asaas: com ela nenhum Pix é de verdade. Use a chave de produção ($aact_prod_).");
       await asaas({ apiKey: key }, "/finance/balance"); // confere se a chave funciona antes de guardar
       await db().update<Venue>("venues", venue.id, { asaas_key_enc: seal(key) });
     }

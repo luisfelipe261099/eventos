@@ -20,7 +20,9 @@ export async function POST(req: Request) {
   if (!paymentId) return NextResponse.json({ received: true });
   try {
     const p = await getPayment(mode.cfg, paymentId);
-    if (isPaidStatus(p.status, p.billingType)) await applyPaymentRef(p.externalReference, p.id, venueId);
+    if (isPaidStatus(p.status, p.billingType)) await applyPaymentRef(p.externalReference, p.id, venueId, "paid");
+    else if (p.status === "REFUNDED") await applyPaymentRef(p.externalReference, p.id, venueId, "refunded"); // estornado direto no Asaas
+    else if ((p as { deleted?: boolean }).deleted) await applyPaymentRef(p.externalReference, p.id, venueId, "deleted"); // cobrança apagada no Asaas
   } catch (e) {
     console.error("[webhook asaas]", e);
     return NextResponse.json({ error: "falha temporária" }, { status: 500 }); // o Asaas tenta de novo

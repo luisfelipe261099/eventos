@@ -9,6 +9,7 @@ export const maxDuration = 60;
 /** Chamado pelo Vercel Cron (vercel.json) uma vez por dia: convites VIP de cada casa, Pix vencido e mensalidades. */
 export const GET = handle(async (req: Request) => {
   const secret = process.env.CRON_SECRET;
+  if (!secret && process.env.VERCEL_ENV === "production") return fail("Configure CRON_SECRET.", 503);
   if (secret && req.headers.get("authorization") !== `Bearer ${secret}`) return fail("Não autorizado", 401);
   const released = await releaseStalePending();
   if (!isSupabaseConfigured()) return ok({ ...(await runVipInvites()), released });

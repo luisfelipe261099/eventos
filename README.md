@@ -96,7 +96,7 @@ A Casa Cheia é um SaaS: várias casas usam a mesma instalação, cada uma com a
 ## Colocar em produção (dados reais)
 
 1. **Conectar o banco:** na Vercel, abra o projeto → **Storage** → **Create Database** → **Supabase** ou **Neon** (plano grátis) → conecte ao projeto. A integração cria `POSTGRES_URL`.
-2. **Variáveis:** `ADMIN_PASSWORD` (senha da plataforma), `SESSION_SECRET` (assina as sessões e cifra as chaves do Asaas; não troque depois de ter casas cadastradas), `CRON_SECRET` e `NEXT_PUBLIC_APP_URL`.
+2. **Variáveis:** `ADMIN_PASSWORD` (senha da plataforma), `CRON_SECRET` (obrigatória em produção) e `NEXT_PUBLIC_APP_URL`. As sessões e a cifra das chaves do Asaas usam `SESSION_SECRET` ou, na falta dela, o `SUPABASE_JWT_SECRET` que a integração do Supabase cria. Nunca a `ADMIN_PASSWORD`. Depois de haver casas com Pix ligado, não troque nem crie `SESSION_SECRET`: as chaves salvas deixam de abrir e cada casa precisa colar a sua de novo.
 3. **Redeploy.** As tabelas são criadas no primeiro cadastro de casa, ou pelo botão em `/admin/setup` logado como plataforma. Cada migração de `supabase/migrations` roda uma única vez.
 4. **Receber das casas:** cadastre `ASAAS_SPLIT_WALLET_ID` e `VIPFLOW_ASAAS_API_KEY` (veja acima).
 5. **Cada casa**, depois de se cadastrar em `/cadastro`: liga o Pix em `/admin/setup`, cadastra eventos, cardápio, promoters e mesas, e escolhe o plano em `/admin/plano`.

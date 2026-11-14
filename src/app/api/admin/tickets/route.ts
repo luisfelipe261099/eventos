@@ -1,8 +1,8 @@
 import { body, fail, guardAdmin, handle, ok } from "@/lib/http";
 import { db } from "@/lib/db";
-import { ownedEvent, payMode, releaseTicket } from "@/lib/repo";
+import { markTicketRefunded, ownedEvent, payMode, releaseTicket } from "@/lib/repo";
 import { refundPayment, PaymentError } from "@/lib/payments";
-import type { Ticket, TicketType } from "@/lib/types";
+import type { Ticket } from "@/lib/types";
 
 /** Cancelar ingresso pendente ou estornar ingresso pago (devolve o Pix e libera a vaga). */
 export const POST = handle(async (req: Request) => {
@@ -25,9 +25,7 @@ export const POST = handle(async (req: Request) => {
       if (e instanceof PaymentError) return fail(`O Asaas recusou o estorno: ${e.message}`, 502);
       throw e;
     }
-    await db().update<Ticket>("tickets", id, { status: "refunded", refunded_at: new Date().toISOString() });
-    const tt = await db().get<TicketType>("ticket_types", t.ticket_type_id);
-    if (tt && tt.sold > 0) await db().update<TicketType>("ticket_types", tt.id, { sold: tt.sold - 1 });
+    await markTicketRefunded(id); // atômico: o webhook do mesmo estorno não devolve a vaga duas vezes
     return ok({ status: "refunded" });
   }
   return fail("Ação inválida.");

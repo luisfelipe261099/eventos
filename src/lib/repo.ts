@@ -126,6 +126,15 @@ export async function createTicket(input: { eventId: string; ticketTypeId: strin
   const tt = await db().get<TicketType>("ticket_types", input.ticketTypeId);
   if (!tt || tt.event_id !== input.eventId) throw new Error("Tipo de ingresso inválido");
   if (!(await db().reserveTicket(tt.id))) throw new Error("Este lote esgotou. Escolha outro ingresso.");
+  try {
+    return await issueReservedTicket(input, tt);
+  } catch (e) {
+    await db().adjustSold(tt.id, -1); // devolve a vaga reservada
+    throw e;
+  }
+}
+
+async function issueReservedTicket(input: { eventId: string; name: string; phone: string; cpf?: string | null; promoterId?: string | null; free?: boolean }, tt: TicketType) {
   const customer = await findOrCreateCustomer(input.name, input.phone, input.cpf);
   const venue = await venueOfEvent(input.eventId);
   // indicação de promoter: só vale se o promoter existir, estiver ativo e for da mesma casa
@@ -144,27 +153,32 @@ export async function createTicket(input: { eventId: string; ticketTypeId: strin
   return { ticket, customer, ticketType: tt, venue, chargeCents: totals.buyerCents };
 }
 
+/** Pagamento confirmado. Idempotente e atômico: webhook e consulta ao mesmo tempo não contam a vaga duas vezes. */
 export async function markTicketPaid(ticketId: string) {
+  const paid = await db().transition<Ticket>("tickets", ticketId, ["pending"], { status: "paid" });
+  if (paid) return paid;
   const t = await db().get<Ticket>("tickets", ticketId);
   if (t?.status === "cancelled" && t.payment_id && !/^(teste|free)-/.test(t.payment_id)) {
     // o Pix foi pago depois de o ingresso ter sido liberado: quem pagou não pode ficar sem ingresso.
     // A vaga volta a contar (o lote pode passar 1 ou 2 da quantidade nesse caso raro).
-    const tt = await db().get<TicketType>("ticket_types", t.ticket_type_id);
-    if (tt && !(await db().reserveTicket(tt.id))) await db().update<TicketType>("ticket_types", tt.id, { sold: tt.sold + 1 });
-    console.warn("[ingresso] pago depois de cancelado, reativado:", ticketId);
-    return db().update<Ticket>("tickets", ticketId, { status: "paid" });
+    const back = await db().transition<Ticket>("tickets", ticketId, ["cancelled"], { status: "paid" });
+    if (back) { await db().adjustSold(t.ticket_type_id, 1); console.warn("[ingresso] pago depois de cancelado, reativado:", ticketId); }
+    return back ?? (await db().get<Ticket>("tickets", ticketId));
   }
-  if (!t || t.status !== "pending") return t; // idempotente: webhook pode chegar repetido
-  return db().update<Ticket>("tickets", ticketId, { status: "paid" });
+  return t;
+}
+
+/** Estorno ou exclusão feitos direto no Asaas: o ingresso deixa de valer e a vaga volta. */
+export async function markTicketRefunded(ticketId: string) {
+  const t = await db().transition<Ticket>("tickets", ticketId, ["paid", "pending"], { status: "refunded", refunded_at: new Date().toISOString() });
+  if (t) await db().adjustSold(t.ticket_type_id, -1);
+  return t;
 }
 
 /** Cancela ingresso não pago e devolve a vaga ao lote. */
 export async function releaseTicket(ticketId: string) {
-  const t = await db().get<Ticket>("tickets", ticketId);
-  if (!t || t.status !== "pending") return;
-  await db().update<Ticket>("tickets", ticketId, { status: "cancelled" });
-  const tt = await db().get<TicketType>("ticket_types", t.ticket_type_id);
-  if (tt && tt.sold > 0) await db().update<TicketType>("ticket_types", tt.id, { sold: tt.sold - 1 });
+  const t = await db().transition<Ticket>("tickets", ticketId, ["pending"], { status: "cancelled" });
+  if (t) await db().adjustSold(t.ticket_type_id, -1);
 }
 
 export const PENDING_MAX_AGE_MS = 30 * 60 * 1000;
@@ -204,19 +218,27 @@ export async function releaseStalePending(opts: { maxAgeMs?: number; eventId?: s
  * comanda E se ele for da casa dona do webhook: uma casa não consegue quitar o
  * ingresso de outra apontando a referência.
  */
-export async function applyPaymentRef(externalRef: string | null | undefined, paymentId: string, venueId: string) {
+export async function applyPaymentRef(externalRef: string | null | undefined, paymentId: string, venueId: string, outcome: "paid" | "refunded" | "deleted" = "paid") {
   if (!externalRef) return null;
   const [kind, ref] = externalRef.split(":");
   const mine = async (eventId: string) => (await db().get<EventItem>("events", eventId))?.venue_id === venueId;
+  // a cobrança veio da conta Asaas da própria casa; payment_id vazio = o processo caiu antes de gravá-lo
+  const same = (current: string | null | undefined) => !current || current === paymentId;
   if (kind === "ticket") {
     const t = await db().get<Ticket>("tickets", ref);
-    if (!t || t.payment_id !== paymentId || !(await mine(t.event_id))) return null;
-    await markTicketPaid(ref); return "ticket";
+    if (!t || !same(t.payment_id) || !(await mine(t.event_id))) return null;
+    if (!t.payment_id) await db().update<Ticket>("tickets", ref, { payment_id: paymentId });
+    if (outcome === "paid") await markTicketPaid(ref);
+    else if (outcome === "refunded") await markTicketRefunded(ref);
+    else await releaseTicket(ref);
+    return "ticket";
   }
   if (kind === "tab") {
     const t = await db().get<Tab>("tabs", ref);
-    if (!t || t.payment_id !== paymentId || !(await mine(t.event_id))) return null;
-    await db().update<Tab>("tabs", ref, { status: "paid" }); return "tab";
+    if (!t || !same(t.payment_id) || !(await mine(t.event_id))) return null;
+    if (outcome === "paid") await db().transition<Tab>("tabs", ref, ["open"], { status: "paid", payment_id: paymentId });
+    else if (outcome === "deleted" && t.payment_id === paymentId) await db().update<Tab>("tabs", ref, { payment_id: null });
+    return "tab";
   }
   return null;
 }
@@ -250,14 +272,16 @@ export async function doorManifest(eventId: string) {
 /** Recebe check-ins feitos (inclusive offline) e grava sem duplicar. */
 export async function syncCheckins(eventId: string, items: { ticketId: string; at: string; gate: string; offline: boolean }[]) {
   const existing = new Set((await db().select<Checkin>("checkins", { event_id: eventId })).map((c) => c.ticket_id));
-  const valid = new Set((await db().select<Ticket>("tickets", { event_id: eventId })).map((t) => t.id));
+  const valid = new Set((await db().select<Ticket>("tickets", { event_id: eventId })).filter((t) => t.status === "paid" || t.status === "used").map((t) => t.id));
   const results: { ticketId: string; status: "ok" | "duplicado" | "invalido" }[] = [];
   for (const it of items) {
     if (existing.has(it.ticketId)) { results.push({ ticketId: it.ticketId, status: "duplicado" }); continue; }
-    if (!valid.has(it.ticketId)) { results.push({ ticketId: it.ticketId, status: "invalido" }); continue; } // ingresso de outro evento
+    if (!valid.has(it.ticketId)) { results.push({ ticketId: it.ticketId, status: "invalido" }); continue; } // de outro evento, não pago, cancelado ou estornado
     existing.add(it.ticketId);
-    await db().insert<Checkin>("checkins", { id: uid(), ticket_id: it.ticketId, event_id: eventId, gate: it.gate, at: it.at, offline: it.offline });
-    const t = await db().update<Ticket>("tickets", it.ticketId, { status: "used" });
+    try {
+      await db().insert<Checkin>("checkins", { id: uid(), ticket_id: it.ticketId, event_id: eventId, gate: it.gate, at: it.at, offline: it.offline });
+    } catch { results.push({ ticketId: it.ticketId, status: "duplicado" }); continue; } // outra portaria registrou no mesmo instante
+    const t = await db().transition<Ticket>("tickets", it.ticketId, ["paid"], { status: "used" });
     // se o ingresso veio de promoter, marca o convidado como presente
     if (t?.promoter_id) {
       const [gl] = await db().select<GuestListEntry>("guest_list", { event_id: eventId, customer_id: t.customer_id });
@@ -331,6 +355,21 @@ export async function listProducts(venueId: string): Promise<Product[]> {
 export async function openOrAddToTab(input: { tabId?: string | null; eventId: string; table: string; name: string; phone: string; items: { productId: string; qty: number }[] }) {
   if (!input.items.length) throw new Error("Carrinho vazio");
   let tab = input.tabId ? await db().get<Tab>("tabs", input.tabId) : null;
+  if (tab?.status === "open" && tab.payment_id && !/^(teste|free)-/.test(tab.payment_id)) {
+    // há um Pix gerado para o total antigo: apaga para o cliente não pagar menos do que consumiu
+    const venueId = (await db().get<EventItem>("events", tab.event_id))?.venue_id;
+    const mode = await payMode(venueId);
+    if (mode.kind === "asaas") {
+      const p = await getPayment(mode.cfg, tab.payment_id);
+      if (isPaidStatus(p.status, p.billingType)) {
+        await db().transition<Tab>("tabs", tab.id, ["open"], { status: "paid" });
+        tab = null; // já pago: os itens novos vão para uma comanda nova
+      } else {
+        await cancelCharge(mode.cfg, tab.payment_id).catch((e) => console.error("[comanda] apagar Pix", e));
+        tab = (await db().update<Tab>("tabs", tab.id, { payment_id: null })) ?? tab;
+      }
+    }
+  }
   if (!tab || tab.status !== "open") {
     const customer = await findOrCreateCustomer(input.name || "Cliente", input.phone || `anon-${uid().slice(0, 8)}`);
     tab = { id: uid(), event_id: input.eventId, customer_id: customer.id, table_label: input.table, status: "open", opened_at: new Date().toISOString() };
@@ -341,8 +380,10 @@ export async function openOrAddToTab(input: { tabId?: string | null; eventId: st
   const rows: OrderItem[] = [];
   for (const it of input.items) {
     const p = products.get(it.productId);
-    if (!p || it.qty < 1) continue;
-    rows.push({ id: uid(), tab_id: tab.id, event_id: tab.event_id, product_id: p.id, qty: Math.min(it.qty, 50), unit_price_cents: p.promo_price_cents ?? p.price_cents, status: "queued", created_at: new Date().toISOString() });
+    const qty = Math.floor(Number(it.qty));
+    if (!p || !(qty >= 1)) continue;
+    it.qty = Math.min(qty, 50);
+    rows.push({ id: uid(), tab_id: tab.id, event_id: tab.event_id, product_id: p.id, qty: it.qty, unit_price_cents: p.promo_price_cents ?? p.price_cents, status: "queued", created_at: new Date().toISOString() });
     await db().update<Product>("products", p.id, { stock: Math.max(0, p.stock - it.qty) });
   }
   await db().insert("order_items", rows as (OrderItem)[]);

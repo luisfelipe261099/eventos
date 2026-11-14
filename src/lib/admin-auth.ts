@@ -8,8 +8,21 @@ import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, 
 export const COOKIE = "vf_admin";
 const DAYS = 14;
 
-const secret = () => createHash("sha256")
-  .update(`vipflow:${process.env.SESSION_SECRET || process.env.ADMIN_PASSWORD || process.env.POSTGRES_URL || process.env.DATABASE_URL || "demo"}`).digest();
+/**
+ * Segredo que assina as sessões e cifra as chaves do Asaas das casas.
+ * Nunca deriva da ADMIN_PASSWORD: um cookie assinado permitiria testar a senha fora do ar.
+ * Ordem: SESSION_SECRET; o segredo JWT que a integração Supabase da Vercel cria (aleatório, nunca exposto);
+ * fora de produção, um valor fixo de desenvolvimento. Trocar o segredo invalida as chaves do Asaas já salvas.
+ */
+const rawSecret = () => {
+  const s = process.env.SESSION_SECRET || process.env.SUPABASE_JWT_SECRET;
+  if (s && s.length >= 24) return s;
+  if (process.env.VERCEL_ENV === "production" && (process.env.POSTGRES_URL || process.env.DATABASE_URL)) {
+    throw new Error("Configure SESSION_SECRET (24+ caracteres) nas variáveis da Vercel.");
+  }
+  return "casa-cheia-desenvolvimento";
+};
+const secret = () => createHash("sha256").update(`vipflow:${rawSecret()}`).digest();
 
 export interface Session { venueId: string | null; root: boolean }
 
@@ -43,7 +56,8 @@ export async function getSession(): Promise<Session | null> {
   } catch { return null; }
 }
 
-const demo = async () => !(await import("./db")).isSupabaseConfigured();
+/** Modo demonstração aberto. Em produção na Vercel, sem banco não é demo: é falha, e o painel fica fechado. */
+const demo = async () => !(await import("./db")).isSupabaseConfigured() && process.env.VERCEL_ENV !== "production" || process.env.DEMO_MODE === "1";
 
 /** Pode usar o painel, a portaria e o bar? No modo demo é aberto a quem estiver apresentando. */
 export async function isAdmin(): Promise<boolean> {

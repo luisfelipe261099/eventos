@@ -23,6 +23,10 @@ export interface DB {
   get<T extends Row>(table: TableName, id: string): Promise<T | null>;
   insert<T extends Row>(table: TableName, rows: T | T[]): Promise<T[]>;
   update<T extends Row>(table: TableName, id: string, patch: Partial<T>): Promise<T | null>;
+  /** Muda o status só se ele ainda for um dos esperados (atômico). Devolve a linha, ou null se outro processo chegou antes. */
+  transition<T extends Row>(table: "tickets" | "tabs", id: string, from: string[], patch: Partial<T>): Promise<T | null>;
+  /** Soma ao contador de vendidos do lote (atômico, nunca abaixo de zero). */
+  adjustSold(ticketTypeId: string, delta: number): Promise<void>;
 }
 
 /** Aceita os nomes de variável da integração Supabase da Vercel e os manuais. */
@@ -114,6 +118,16 @@ function ready(): Promise<void> {
 
 const postgresDB: DB = {
   mode: "supabase",
+  async transition(table, id, from, patch) {
+    await ready();
+    const p = Object.fromEntries(Object.entries(patch as Record<string, unknown>).filter(([k, v]) => k !== "id" && v !== undefined));
+    const [r] = await withDb((sql) => sql`update ${sql(table)} set ${sql(p as never)} where id = ${id} and status in ${sql(from)} returning *`);
+    return (r ?? null) as never;
+  },
+  async adjustSold(id, delta) {
+    await ready();
+    await withDb((sql) => sql`update ticket_types set sold = greatest(0, sold + ${delta}) where id = ${id}`);
+  },
   async reserveTicket(id) {
     await ready();
     const [r] = await withDb((sql) => sql`select reserve_ticket(${id}) as ok`);
@@ -151,6 +165,15 @@ const postgresDB: DB = {
 
 const supabaseDB: DB = {
   mode: "supabase",
+  async transition(table, id, from, patch) {
+    const { data, error } = await supa().from(table).update(patch as never).eq("id", id).in("status", from).select("*").maybeSingle();
+    if (error) throw error;
+    return (data ?? null) as never;
+  },
+  async adjustSold(id, delta) {
+    const tt = await this.get<{ id: string; sold: number }>("ticket_types", id);
+    if (tt) await this.update<{ id: string; sold: number }>("ticket_types", id, { sold: Math.max(0, tt.sold + delta) });
+  },
   async reserveTicket(id) {
     const { data, error } = await supa().rpc("reserve_ticket", { p_ticket_type_id: id });
     if (error) throw error;
@@ -247,6 +270,15 @@ const strip = (r: Row) => Object.fromEntries(Object.entries(r as unknown as Reco
 
 const demoDB: DB = {
   mode: "demo",
+  async transition(table, id, from, patch) {
+    const row = await this.get<Row & { status: string }>(table, id);
+    if (!row || !from.includes(row.status)) return null;
+    return this.update(table, id, patch) as never;
+  },
+  async adjustSold(id, delta) {
+    const tt = await this.get<{ id: string; sold: number }>("ticket_types", id);
+    if (tt) await this.update<{ id: string; sold: number }>("ticket_types", id, { sold: Math.max(0, tt.sold + delta) });
+  },
   async reserveTicket(id) {
     const tt = await this.get<{ id: string; sold: number; quantity: number }>("ticket_types", id);
     if (!tt || tt.sold >= tt.quantity) return false;

@@ -4,6 +4,8 @@ import type { EventItem, Product, Promoter, TicketType, Venue } from "./types";
 import { getVenueOrNull } from "./repo";
 
 const DENIED = "Este registro é de outra casa.";
+/** Abaixo disso a tarifa do Pix do Asaas come o ingresso e o split não cabe no valor líquido. */
+export const MIN_PAID_TICKET_CENTS = 500;
 
 export const slugify = (s: string) =>
   s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
@@ -74,6 +76,8 @@ export async function saveEvent(input: EventInput) {
   for (const lot of input.lots ?? []) {
     if (!lot.name?.trim()) continue;
     const data = { name: lot.name.trim(), price_cents: int(lot.price_cents), quantity: int(lot.quantity, 0) };
+    if (data.price_cents > 0 && data.price_cents < MIN_PAID_TICKET_CENTS)
+      throw new Error(`O lote "${data.name}" custa menos de R$ 5,00. Ingresso pago precisa ser de R$ 5,00 ou mais (ou grátis).`);
     const found = lot.id && current.find((c) => c.id === lot.id);
     if (found) {
       if (data.quantity < found.sold) throw new Error(`O lote "${found.name}" já vendeu ${found.sold}; a quantidade não pode ser menor.`);
