@@ -1,27 +1,22 @@
 /**
  * Administradores da plataforma (entram em /plataforma com e-mail e senha).
- * O primeiro acesso de um e-mail listado em PLATFORM_ADMIN_EMAILS cria a conta com a
- * senha informada; depois disso a senha passa a ser conferida normalmente.
+ * Só um administrador logado cria outro (ou a ADMIN_PASSWORD, com o e-mail em branco).
  */
 import { db, uid } from "./db";
 import { hashPassword, verifyPassword } from "./admin-auth";
 import type { PlatformAdmin } from "./types";
 
 const norm = (e: string) => e.trim().toLowerCase();
-const allowList = () => (process.env.PLATFORM_ADMIN_EMAILS ?? "").split(/[,;\s]+/).map(norm).filter(Boolean);
 
 export async function findAdmin(email: string) {
   const e = norm(email);
   return (await db().select<PlatformAdmin>("platform_admins")).find((a) => norm(a.email) === e) ?? null;
 }
 
-/** Confere e-mail e senha de administrador. Devolve true se entrou. */
+/** Confere e-mail e senha de administrador. Conta nova só nasce por outro administrador logado (upsertAdmin). */
 export async function adminLogin(email: string, password: string): Promise<boolean> {
   const a = await findAdmin(email);
-  if (a) return verifyPassword(password, a.password_hash);
-  if (!allowList().includes(norm(email)) || password.length < 8) return false;
-  await db().insert<PlatformAdmin>("platform_admins", { id: uid(), email: norm(email), password_hash: hashPassword(password), created_at: new Date().toISOString() });
-  return true; // primeiro acesso de um e-mail autorizado: a conta nasce com esta senha
+  return a ? verifyPassword(password, a.password_hash) : false;
 }
 
 /** Cria ou troca a senha de um administrador (só a plataforma chama). */
