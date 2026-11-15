@@ -65,11 +65,14 @@ export const POST = handle(async (req: Request) => {
     return ok({ email: v.owner_email, password });
   }
   if (b.action === "delete") {
-    // só para cadastros de teste ou abandonados: casa que já emitiu ingresso não é apagada
+    // só para cadastros de teste ou abandonados: casa que já vendeu não é apagada
     const events = await db().select<EventItem>("events", { venue_id: v.id });
     const ids = new Set(events.map((e) => e.id));
-    const tickets = (await db().select<Ticket>("tickets")).filter((t) => ids.has(t.event_id)).length;
-    if (tickets > 0) return fail(`Esta casa já emitiu ${tickets} ingresso(s). Pause a casa em vez de excluir.`, 409);
+    // ingresso só pendente ou cancelado não movimentou dinheiro; pago, usado ou estornado sim
+    const tickets = (await db().select<Ticket>("tickets")).filter((t) => ids.has(t.event_id) && ["paid", "used", "refunded"].includes(t.status)).length;
+    if (tickets > 0) return fail(`Esta casa já vendeu ${tickets} ingresso(s). Pause a casa em vez de excluir.`, 409);
+    const { balance } = await import("@/lib/payouts");
+    if ((await balance(v.id)).entries.length > 0) return fail("Esta casa tem movimento no extrato. Pause a casa em vez de excluir.", 409);
     if (!postgresUrl()) return fail("Exclusão disponível só com o banco conectado.", 409);
     await pg()`delete from venues where id = ${v.id}`; // eventos, lotes, produtos e promoters saem em cascata
     return ok({ deleted: true });
