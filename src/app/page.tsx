@@ -72,9 +72,16 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ c
 
         <h2 className="h-display mt-10 text-[28px]">Próximos eventos</h2>
         {list.length === 0 ? (
-          <div className="mt-6 rounded-2xl border border-dashed border-linha p-8 text-center text-nevoa">
-            Nenhum evento encontrado{term ? ` para “${q}”` : ""}. <Link href="/" className="font-medium text-violeta">Ver todos os eventos</Link>
-          </div>
+          all.length === 0 ? (
+            <div className="mt-6 rounded-[22px] bg-white p-8 text-center">
+              <p className="poster text-[30px] uppercase">A agenda abre em breve</p>
+              <p className="mt-2 text-nevoa">As primeiras casas estão chegando. Volte logo para garantir o seu ingresso.</p>
+            </div>
+          ) : (
+            <div className="mt-6 rounded-2xl border border-dashed border-linha p-8 text-center text-nevoa">
+              Nenhum evento encontrado{term ? ` para “${q}”` : ""}. <Link href="/" className="font-medium text-violeta">Ver todos os eventos</Link>
+            </div>
+          )
         ) : (
           <ul className="mt-5 grid grid-cols-2 gap-x-4 gap-y-7 md:grid-cols-3 lg:grid-cols-4">
             {list.map((e) => (
@@ -101,7 +108,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ c
             <h2 className="poster text-[38px] uppercase">Tem uma casa ou produz eventos?</h2>
             <p className="mt-3 max-w-md text-white/70">Venda ingressos, receba na sua chave Pix quando quiser, controle a porta mesmo sem internet e veja o que mais vende no bar.</p>
           </div>
-          <Link href="/admin" className="btn-primary mt-6 md:mt-0">Conhecer o painel</Link>
+          <Link href="/planos" className="btn-primary mt-6 md:mt-0">Ver planos e preços</Link>
         </div>
       </section>
 

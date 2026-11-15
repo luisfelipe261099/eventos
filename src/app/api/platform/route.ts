@@ -6,6 +6,8 @@ import { db, pg, postgresUrl } from "@/lib/db";
 import { getVenueById } from "@/lib/repo";
 import { PLANS } from "@/lib/plans";
 import { upsertAdmin } from "@/lib/admins";
+import { createVenueAccount, VenueInputError } from "@/lib/venues";
+import { PayoutError, requestPayout } from "@/lib/payouts";
 import { ensureWebhook, PaymentError, platformCfg, PLATFORM_HOOK, withdrawalToken } from "@/lib/payments";
 import type { EventItem, Ticket, Venue } from "@/lib/types";
 
@@ -14,7 +16,19 @@ const STATUS = ["trial", "active", "past_due", "blocked"] as const;
 /** Ações da Casa Cheia sobre uma casa: abrir o painel dela, trocar plano ou situação, estender o período grátis. */
 export const POST = handle(async (req: Request) => {
   if (!(await isRoot())) return fail("Não autorizado", 401);
-  const b = await body<{ venueId: string; action: "enter" | "plan" | "status" | "extend" | "reset_password" | "delete" | "setup_hooks" | "admin"; plan?: string; status?: string; days?: number; email?: string; password?: string }>(req);
+  const b = await body<{ venueId: string; action: "enter" | "plan" | "status" | "extend" | "reset_password" | "delete" | "setup_hooks" | "admin" | "create_venue" | "payout"; plan?: string; status?: string; days?: number; email?: string; password?: string; venue?: string; city?: string; name?: string; phone?: string }>(req);
+  if (b.action === "create_venue") {
+    try {
+      const r = await createVenueAccount({ venue: b.venue ?? "", city: b.city, name: b.name ?? "", email: b.email ?? "", phone: b.phone ?? "", password: b.password || undefined, plan: b.plan });
+      return ok({ id: r.venue.id, password: r.password, generated: r.generated });
+    } catch (e) {
+      if (e instanceof VenueInputError) return fail(e.message);
+      throw e;
+    }
+  }
+  if (b.action === "payout") {
+    try { return ok(await requestPayout(b.venueId)); } catch (e) { if (e instanceof PayoutError) return fail(e.message, 409); throw e; }
+  }
   if (b.action === "admin") {
     try { await upsertAdmin(b.email ?? "", b.password ?? ""); } catch (e) { return fail(e instanceof Error ? e.message : "Falhou"); }
     return ok({ ok: true });

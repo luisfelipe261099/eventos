@@ -23,6 +23,7 @@ export const GET = handle(async (req: Request) => {
   }
   const billing = await syncAllBilling().catch((e) => ({ error: String(e) }));
   const credited = await reconcileCustody().catch((e) => ({ error: String(e) })); // venda paga que ficou sem crédito no extrato
+  const platform = await import("@/lib/platform").then((m) => m.ensurePlatformReady(true)).then((h) => ({ fixes: h.fixes, error: h.error })).catch((e) => ({ error: String(e) })); // conta Asaas da plataforma sempre pronta
   const payouts = await runPayouts().catch((e) => ({ error: String(e) }));
-  return ok({ venues, released, billing, credited, payouts });
+  return ok({ venues, released, billing, credited, payouts, platform });
 });

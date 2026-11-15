@@ -42,8 +42,11 @@ export function AppBar({ back }: { back?: string }) {
       <div className="mx-auto flex h-16 max-w-5xl items-center gap-3 px-4">
         {back && <Link href={back} aria-label="Voltar" className="-ml-2 rounded-full p-2 hover:bg-white/10"><Icon name="back" size={22} /></Link>}
         <Link href="/" aria-label="Casa Cheia, início" className="flex items-center"><BrandLogo h={30} /></Link>
-        <Link href="/conta" className="ml-auto inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/20">
-          <Icon name="user" size={18} /> Minha conta
+        <Link href="/conta" className="ml-auto inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium hover:bg-white/10" aria-label="Meus ingressos">
+          <Icon name="ticket" size={18} /> <span className="hidden sm:inline">Meus ingressos</span>
+        </Link>
+        <Link href="/entrar" className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-medium hover:bg-white/20">
+          <Icon name="user" size={18} /> Entrar
         </Link>
       </div>
     </header>
@@ -65,18 +68,14 @@ export function Footer() {
       <div className="mx-auto grid max-w-5xl gap-10 px-4 py-12 md:grid-cols-3">
         <div>
           <BrandLogo h={32} />
-          <p className="mt-4 max-w-xs text-sm text-white/60">Ingressos, cardápio digital e comandas para as melhores casas de Curitiba.</p>
+          <p className="mt-4 max-w-xs text-sm text-white/60">Ingressos, portaria, cardápio digital e comandas para casas noturnas, bares e eventos.</p>
         </div>
         <div>
           <h3 className="text-sm font-semibold">Para casas e produtores</h3>
           <ul className="mt-3 space-y-2 text-sm text-white/60">
             <li><Link className="hover:text-white" href="/planos">Planos e preços</Link></li>
             <li><Link className="hover:text-white" href="/cadastro">Cadastrar minha casa</Link></li>
-            <li><Link className="hover:text-white" href="/simular">Simulador</Link></li>
-            <li><Link className="hover:text-white" href="/admin">Painel da casa</Link></li>
-            <li><Link className="hover:text-white" href="/bar">Tela do bar</Link></li>
-            <li><Link className="hover:text-white" href="/portaria">Portaria</Link></li>
-            <li><Link className="hover:text-white" href="/promoter">App do promoter</Link></li>
+            <li><Link className="hover:text-white" href="/entrar">Entrar no painel</Link></li>
           </ul>
         </div>
         <div>
@@ -106,7 +105,7 @@ export function DateStamp({ iso, className = "" }: { iso: string; className?: st
 export function Flyer({ src, alt, sizes, priority = false, className = "" }: { src?: string | null; alt: string; sizes: string; priority?: boolean; className?: string }) {
   return (
     <div className={`relative aspect-[4/5] overflow-hidden bg-[#1a1820] ${className}`}>
-      {src ? <Image src={src} alt={alt} fill sizes={sizes} priority={priority} className="object-cover" /> : <div className="poster absolute inset-0 flex items-end p-4 text-3xl text-white">{alt}</div>}
+      {src ? <Image src={src} alt={alt} fill sizes={sizes} priority={priority} className="object-cover" /> : <div className="poster absolute inset-0 flex items-end p-4 text-3xl uppercase text-white" style={{ background: "radial-gradient(120% 80% at 15% 0%, #8B2CF5 0%, #3a1170 42%, #0B0B0D 100%)" }}>{alt}</div>}
     </div>
   );
 }

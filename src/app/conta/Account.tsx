@@ -6,11 +6,11 @@ import { dayNum, Icon, longDate, monthShort } from "@/components/client";
 
 type T = { id: string; status: string; type: string; venue: string; event: { name: string; starts_at: string; cover_url: string | null } | null };
 
+import { isValidCpf, maskCpf } from "@/lib/format";
+
 const TILES = [
-  { href: "/", title: "Comprar ingressos", desc: "Veja a agenda da semana", img: "/posters/baile-neon.jpg" },
+  { href: "/", title: "Comprar ingressos", desc: "Veja a agenda", img: "/posters/baile-neon.jpg" },
   { href: "#ingressos", title: "Meus ingressos", desc: "QR code para a entrada", img: "/posters/sexta-open-bar.jpg" },
-  { href: "/cardapio/casa-demo", title: "Cardápio e comanda", desc: "Peça sem sair da pista", img: "/posters/pagode-de-mesa.jpg" },
-  { href: "https://wa.me/5541900000000", title: "Precisa de ajuda?", desc: "Fale com o suporte", img: "/posters/subsolo-techno.jpg" },
 ];
 
 export default function Account() {
@@ -29,12 +29,26 @@ export default function Account() {
   const first = profile.name?.split(" ")[0];
   const upcoming = (tickets ?? []).filter((t) => t.event && new Date(t.event.starts_at).getTime() > Date.now() - 8 * 36e5);
   const past = (tickets ?? []).filter((t) => !upcoming.includes(t));
-  const tiles = TILES.map((t) => (t.href.startsWith("/cardapio") && tab ? { ...t, href: `/comanda/${tab}`, desc: "Sua comanda está aberta" } : t));
+  const tiles = tab ? [...TILES, { href: `/comanda/${tab}`, title: "Minha comanda", desc: "Sua comanda está aberta", img: "/posters/pagode-de-mesa.jpg" }, { href: "/cancelamento", title: "Ajuda", desc: "Cancelamento e reembolso", img: "/posters/subsolo-techno.jpg" }]
+    : [...TILES];
+  const [find, setFind] = useState({ phone: "", cpf: "", busy: false, msg: "" });
+  async function lookup() {
+    setFind({ ...find, busy: true, msg: "" });
+    const r = await fetch("/api/meus-ingressos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone: find.phone, cpf: find.cpf }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return setFind({ ...find, busy: false, msg: j.error ?? "Não foi possível buscar." });
+    const mine: string[] = JSON.parse(localStorage.getItem("vf_tickets") ?? "[]");
+    const ids = [...new Set([...(j.ids as string[]), ...mine])];
+    localStorage.setItem("vf_tickets", JSON.stringify(ids));
+    const xs = await Promise.all(ids.slice(0, 30).map((id) => fetch(`/api/tickets/${id}`).then((x) => (x.ok ? x.json() : null)).catch(() => null)));
+    setTickets(xs.filter(Boolean));
+    setFind({ phone: "", cpf: "", busy: false, msg: j.ids.length ? `${j.ids.length} ingresso(s) encontrado(s).` : "Nenhum ingresso pago com esse WhatsApp e CPF." });
+  }
 
   return (
     <div className="mx-auto max-w-md pt-6">
       <h1 className="h-display text-[32px]">{first ? `Olá, ${first}` : "Minha conta"}</h1>
-      {!first && <p className="mt-1 text-nevoa">Seus ingressos ficam salvos neste celular depois da primeira compra.</p>}
+      {!first && <p className="mt-1 text-nevoa">Seus ingressos ficam salvos neste celular. Trocou de celular? Busque pelo WhatsApp e CPF da compra.</p>}
 
       <div className="mt-6 grid grid-cols-2 gap-3">
         {tiles.map((t) => (
@@ -69,6 +83,15 @@ export default function Account() {
           ))}
         </ul>
       )}
+      <details className="mt-6 rounded-2xl bg-white p-4">
+        <summary className="cursor-pointer font-medium">Comprou em outro celular? Encontre seus ingressos</summary>
+        <div className="mt-3 space-y-2">
+          <input className="field" inputMode="tel" placeholder="WhatsApp usado na compra" value={find.phone} onChange={(e) => setFind({ ...find, phone: e.target.value })} />
+          <input className="field" inputMode="numeric" placeholder="CPF usado no Pix" value={maskCpf(find.cpf)} onChange={(e) => setFind({ ...find, cpf: e.target.value })} />
+          <button className="btn-dark w-full" disabled={find.busy || find.phone.replace(/\D/g, "").length < 10 || !isValidCpf(find.cpf)} onClick={lookup}>{find.busy ? "Buscando…" : "Buscar meus ingressos"}</button>
+          {find.msg && <p role="status" className="text-sm text-nevoa">{find.msg}</p>}
+        </div>
+      </details>
       {past.length > 0 && (
         <>
           <h3 className="mt-8 text-sm font-semibold text-nevoa">Eventos que você foi</h3>

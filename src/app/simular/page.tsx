@@ -1,5 +1,6 @@
 import { currentEvent, getTicketTypes, getVenueOrNull } from "@/lib/repo";
 import { isSupabaseConfigured } from "@/lib/db";
+import { redirect } from "next/navigation";
 import { AppBar } from "@/components/client";
 import Simulator from "./Simulator";
 
@@ -7,6 +8,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Simulador" };
 
 export default async function SimularPage() {
+  if (isSupabaseConfigured()) redirect("/planos"); // simulador usa dados fictícios: só existe na demonstração
   const [ev, venue] = await Promise.all([currentEvent(), getVenueOrNull()]);
   const types = ev ? await getTicketTypes(ev.id) : [];
   const pista = types.sort((a, b) => a.price_cents - b.price_cents)[0];

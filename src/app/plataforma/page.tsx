@@ -1,80 +1,77 @@
-import { isRoot } from "@/lib/admin-auth";
-import { db, isSupabaseConfigured } from "@/lib/db";
-import { platformCfg, platformOverview } from "@/lib/billing";
-import { platformWallet } from "@/lib/payments";
+import Link from "next/link";
+import { platformData } from "@/lib/platform-data";
+import { ensurePlatformReady } from "@/lib/platform";
 import { brl } from "@/lib/format";
-import type { Lead } from "@/lib/types";
-import { DemoBanner, Page, Pill, Stat, TopBar } from "@/components/ui";
-import Login from "../admin/Login";
-import VenueActions from "./VenueActions";
-import HooksSetup from "./HooksSetup";
-import AdminsBox from "./AdminsBox";
-import { listAdmins } from "@/lib/admins";
-import { balance } from "@/lib/payouts";
+import { Stat } from "@/components/ui";
+import CopyField from "./CopyField";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Plataforma", robots: { index: false } };
 
-const STATUS = { trial: ["Grátis", "brand"], active: ["Em dia", "ok"], past_due: ["Atrasada", "warn"], blocked: ["Pausada", "bad"] } as const;
+const dt = (iso: string) => new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
+const KIND: Record<string, string> = { sale_ticket: "Ingresso", sale_tab: "Comanda", refund: "Estorno", adjust: "Ajuste" };
 
-/** Visão da Casa Cheia: casas, planos, mensalidades e taxas do mês. */
-export default async function Plataforma() {
-  if (!(await isRoot())) return <Login />;
-  const [o, leads] = await Promise.all([platformOverview(), db().select<Lead>("leads").catch(() => [] as Lead[])]);
-  // saldo a repassar das casas que recebem pela conta da plataforma
-  const custodyBal = new Map<string, number>();
-  if (platformCfg()) for (const r of o.rows) if (!r.venue.has_asaas) custodyBal.set(r.venue.id, (await balance(r.venue.id)).availableCents);
-  const toRepass = [...custodyBal.values()].reduce((s, v) => s + Math.max(0, v), 0);
-  const month = new Date(`${o.month}-15`).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+/** Visão geral da plataforma: o que entrou, o que é seu, o que falta repassar e o que pede atenção. */
+export default async function Overview() {
+  const [d, health] = await Promise.all([platformData(), ensurePlatformReady()]);
+  const month = new Date(`${d.month}-15`).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
+  const alerts: { tone: "bad" | "warn"; text: React.ReactNode; href?: string }[] = [];
+  if (health.error) alerts.push({ tone: "bad", text: <>Não consegui falar com a conta Asaas da plataforma: {health.error}</>, href: "/plataforma/sistema" });
+  if (health.account && health.account.bankAccount !== "APPROVED") alerts.push({ tone: "warn", text: "Sua conta bancária ainda não foi aprovada no Asaas: você recebe, mas não consegue sacar o que é seu.", href: "/plataforma/sistema" });
+  if (d.awaiting.length) alerts.push({ tone: "warn", text: <>{d.awaiting.length} repasse(s) esperando sua aprovação no app do Asaas.</>, href: "/plataforma/repasses" });
+  if (d.counts.late) alerts.push({ tone: "warn", text: <>{d.counts.late} casa(s) com mensalidade atrasada.</>, href: "/plataforma/casas" });
+
   return (
-    <Page wide>
-      <TopBar title="Plataforma Casa Cheia" sub={`Casas e receita · ${month}`} back="/" />
-      <DemoBanner show={!isSupabaseConfigured()} />
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Casas" value={o.rows.length} />
-        <Stat label="Mensalidades (casas pagantes)" value={brl(o.mrrCents)} tone="ok" />
-        <Stat label="Taxas de ingresso no mês" value={brl(o.feeCents)} tone="brand" />
-        <Stat label="A repassar às casas" value={brl(toRepass)} />
+    <>
+      <h1 className="h-display text-2xl">Visão geral <span className="text-base font-normal text-mut">· {month}</span></h1>
+      {alerts.length > 0 && (
+        <ul className="mt-4 space-y-2">
+          {alerts.map((a, i) => (
+            <li key={i}><Link href={a.href ?? "#"} className={`block rounded-xl border px-4 py-3 text-sm ${a.tone === "bad" ? "border-bad/40 bg-bad/10 text-bad" : "border-warn/40 bg-warn/10 text-warn"}`}>{a.text}</Link></li>
+          ))}
+        </ul>
+      )}
+
+      <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Stat label="Vendido nas casas no mês" value={brl(d.monthGrossCents)} />
+        <Stat label="Sua taxa sobre ingressos no mês" value={brl(d.monthFeeCents)} tone="brand" />
+        <Stat label="Mensalidades (casas em dia)" value={brl(d.mrrCents)} tone="ok" />
+        <Stat label="A repassar às casas" value={brl(d.toRepassCents)} />
       </div>
-      <p className="mt-2 text-xs text-mut">
-        Taxa por ingresso: {platformWallet() ? "descontada de cada Pix pelo split do Asaas." : "sem ASAAS_SPLIT_WALLET_ID, fica como \"a faturar\"."}{" "}
-        Mensalidade: {platformCfg() ? "cobrada pela conta Asaas da Casa Cheia." : "sem VIPFLOW_ASAAS_API_KEY, a cobrança é manual."}
-      </p>
-
-      {platformCfg() && <HooksSetup />}
-      <AdminsBox admins={await listAdmins().catch(() => [])} />
-
-      <h2 className="h-display mt-8 text-xl">Casas</h2>
-      <div className="mt-3 overflow-x-auto rounded-2xl border border-line">
-        <table className="w-full min-w-[900px] text-sm">
-          <thead className="bg-white/5 text-left text-xs text-mut"><tr><th className="p-3">Casa</th><th className="p-3">Plano</th><th className="p-3">Situação</th><th className="p-3">Ingressos pagos</th><th className="p-3">Vendido</th><th className="p-3">Taxa</th><th className="p-3">A repassar</th><th className="p-3">Ações</th></tr></thead>
-          <tbody>
-            {o.rows.map((r) => {
-              const [label, tone] = STATUS[(r.venue.plan_status ?? "trial") as keyof typeof STATUS] ?? STATUS.trial;
-              return (
-                <tr key={r.venue.id} className="border-t border-line align-top">
-                  <td className="p-3"><div className="font-medium">{r.venue.name}</div><div className="text-xs text-mut">{r.venue.owner_email ?? "sem conta própria"}{r.venue.owner_phone ? ` · ${r.venue.owner_phone}` : ""}</div><div className="text-xs text-mut">{r.venue.has_asaas ? "conta Asaas própria" : "recebe pela plataforma"}</div></td>
-                  <td className="p-3">{r.plan.name}<div className="text-xs text-mut">{brl(r.plan.monthlyCents)} + {String(r.plan.feePercent).replace(".", ",")}%</div></td>
-                  <td className="p-3"><Pill tone={tone}>{label}</Pill>{r.venue.plan_status === "trial" && <div className="mt-1 text-xs text-mut">{r.trialLeft} dia(s)</div>}</td>
-                  <td className="p-3">{r.fees.tickets}</td><td className="p-3">{brl(r.fees.grossCents)}</td><td className="p-3">{brl(r.fees.feeCents)}</td><td className="p-3 text-warn">{custodyBal.has(r.venue.id) ? brl(custodyBal.get(r.venue.id)!) : r.fees.dueCents ? `${brl(r.fees.dueCents)} a faturar` : "—"}<div className="text-xs text-mut">{r.venue.has_asaas ? "conta própria" : r.venue.pix_key ? `Pix ${r.venue.pix_key_type}` : "sem chave Pix"}</div></td>
-                  <td className="p-3"><VenueActions venueId={r.venue.id} plan={r.plan.id} status={r.venue.plan_status ?? "trial"} plans={o.plans.map((p) => ({ id: p.id, name: p.name }))} /></td>
-                </tr>
-              );
-            })}
-            {o.rows.length === 0 && <tr><td className="p-4 text-mut" colSpan={8}>Nenhuma casa cadastrada ainda. Divulgue o link /cadastro.</td></tr>}
-          </tbody>
-        </table>
+      <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Stat label="Casas" value={d.counts.total} />
+        <Stat label="Em período grátis" value={d.counts.trial} />
+        <Stat label="Pagando" value={d.counts.active} tone="ok" />
+        <Stat label="Com atraso" value={d.counts.late} />
       </div>
 
-      <h2 className="h-display mt-8 text-xl">Pedidos de contato</h2>
-      <ul className="mt-3 grid gap-3 md:grid-cols-3">
-        {leads.sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 60).map((l) => (
-          <li key={l.id} className="card"><div className="font-semibold">{l.name}</div><div className="text-sm text-mut">{[l.venue_name, l.city, l.plan].filter(Boolean).join(" · ")}</div>
-            <a className="mt-2 inline-block text-brandl underline" href={`https://wa.me/55${l.phone.replace(/\D/g, "").replace(/^55/, "")}`} target="_blank" rel="noreferrer">{l.phone}</a>
-            <div className="text-xs text-mut">{new Date(l.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</div></li>
-        ))}
-        {leads.length === 0 && <li className="text-mut">Nenhum pedido ainda.</li>}
-      </ul>
-    </Page>
+      {d.counts.total === 0 ? (
+        <div className="card mt-6">
+          <div className="text-lg font-semibold">Nenhuma casa ainda</div>
+          <p className="mt-1 text-sm text-mut">Cadastre a primeira casa você mesmo, ou mande o link de cadastro para o dono. Ela já começa vendendo: o Pix cai na conta da plataforma e a parte da casa vai para a chave Pix dela.</p>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <Link href="/plataforma/casas#nova" className="btn">Cadastrar casa</Link>
+            <CopyField value={`${appUrl}/cadastro`} label="Copiar link de cadastro" />
+          </div>
+        </div>
+      ) : (
+        <>
+          <h2 className="h-display mt-8 text-xl">Últimas vendas</h2>
+          {d.recentSales.length === 0 ? <p className="mt-2 text-sm text-mut">Nenhuma venda pela plataforma ainda.</p> : (
+            <ul className="card mt-3 divide-y divide-line p-0 text-sm">
+              {d.recentSales.map((e) => (
+                <li key={e.id} className="flex items-center gap-3 px-4 py-2.5">
+                  <span className="w-24 shrink-0 text-mut">{dt(e.created_at)}</span>
+                  <span className="min-w-0 flex-1 truncate">{d.names.get(e.venue_id) ?? "Casa"} · {KIND[e.kind]}{e.note ? ` · ${e.note}` : ""}</span>
+                  <span className={e.gross_cents < 0 ? "text-bad" : ""}>{brl(e.gross_cents)}</span>
+                  <span className="w-20 text-right text-brandl">{e.platform_fee_cents ? brl(e.platform_fee_cents) : "—"}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-2 text-xs text-mut">À direita, a sua taxa em cada venda.</p>
+        </>
+      )}
+    </>
   );
 }

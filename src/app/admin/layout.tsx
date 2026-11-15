@@ -1,4 +1,5 @@
-import { isAdmin } from "@/lib/admin-auth";
+import { redirect } from "next/navigation";
+import { getSession, isAdmin } from "@/lib/admin-auth";
 import Link from "next/link";
 import Login from "./Login";
 import { isSupabaseConfigured } from "@/lib/db";
@@ -9,6 +10,8 @@ export const metadata = { title: "Painel" };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   if (!(await isAdmin())) return <Login />;
+  const session = isSupabaseConfigured() ? await getSession() : null;
+  if (session?.root && !session.venueId) redirect("/plataforma"); // administrador: a casa é escolhida em /plataforma
   const v = isSupabaseConfigured() ? await getVenueOrNull().catch(() => null) : null;
   const left = v ? trialDaysLeft(v) : 0;
   const notice = !v ? null
@@ -18,6 +21,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     : null;
   return (
     <>
+      {session?.root && v && (
+        <a href="/plataforma/casas" className="block bg-brand px-4 py-2 text-center text-sm font-medium text-white">
+          Você está no painel de <b>{v.name}</b> como administrador · <span className="underline">Voltar à administração</span>
+        </a>
+      )}
       {notice && (
         <Link href="/admin/plano" className={`block px-4 py-2.5 text-center text-sm font-medium ${notice.bad ? "bg-[#ff7a8c] text-[#2a0710]" : "bg-[#ffb347] text-[#2b1a00]"}`}>
           {notice.text} <span className="underline">Ver plano</span>

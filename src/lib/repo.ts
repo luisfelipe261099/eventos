@@ -44,14 +44,13 @@ export async function getVenue(): Promise<Venue> {
 }
 /**
  * Casa da sessão atual: a que fez login no painel. No modo demo, a primeira.
- * A Casa Cheia (root) sem casa escolhida cai na mais antiga.
+ * Administrador da plataforma só vê uma casa depois de abrir o painel dela em /plataforma.
  */
 export async function getVenueOrNull(): Promise<Venue | null> {
   if (!isSupabaseConfigured()) return (await listVenues())[0] ?? null;
   const s = await getSession();
   if (!s) return null;
-  if (s.venueId) return getVenueById(s.venueId);
-  return s.root ? (await listVenues())[0] ?? null : null;
+  return s.venueId ? getVenueById(s.venueId) : null; // administrador sem casa escolhida usa a área da plataforma
 }
 export async function getVenueBySlug(slug: string) {
   const [v] = await db().select<Venue>("venues", { slug });

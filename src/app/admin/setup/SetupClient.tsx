@@ -79,29 +79,8 @@ export default function SetupClient({ initial }: { initial: SetupStatus }) {
       </div>
 
       <ol className="space-y-3">
-        {s.root && <>
-        <Row ok={s.supabase} title="Banco de dados (plataforma)">
-          {s.supabase ? <>Conectado a <b className="text-white">{s.supabaseHost}</b>. {s.venues} casa(s) cadastrada(s).</> : <>Na Vercel: projeto → <b className="text-white">Storage</b> → <b className="text-white">Create Database</b> → <b className="text-white">Supabase</b> ou <b className="text-white">Neon</b> (plano grátis) → conecte ao projeto e faça um novo deploy.</>}
-        </Row>
-        <Row ok={s.tables} title="Tabelas (plataforma)">
-          {s.tables ? "Criadas e atualizadas." : s.supabase ? (s.dbUrl ? "Clique para criar ou atualizar as tabelas." : "Falta a variável POSTGRES_URL. Ela é criada automaticamente pela integração de banco da Vercel.") : "Disponível depois de conectar o banco."}
-          {s.supabase && s.dbUrl && <div className="mt-3"><button className="btn" disabled={busy} onClick={migrate}>{busy ? "Aplicando…" : s.tables ? "Atualizar tabelas" : "Criar tabelas"}</button></div>}
-        </Row>
-        <Row ok={s.split} title="Taxa por ingresso (split do Asaas)">
-          {s.split ? "Ativo: a taxa da Casa Cheia sai de cada Pix direto para a carteira da plataforma." : "Sem ASAAS_SPLIT_WALLET_ID (walletId da conta Asaas da Casa Cheia), a taxa de cada ingresso fica registrada como \"a faturar\" e você cobra junto com a mensalidade."}
-        </Row>
-        <Row ok={s.billing} title="Mensalidade automática">
-          {s.billing ? "Ativa: cada casa assina o plano e paga por Pix, boleto ou cartão na conta Asaas da Casa Cheia." : "Sem VIPFLOW_ASAAS_API_KEY (chave de API da conta Asaas da Casa Cheia), a mensalidade é cobrada por fora e nenhuma casa é pausada sozinha."}
-        </Row>
-        <Row ok={s.ai} title="IA para textos (Gemini)">
-          {s.ai ? "Conectada." : "Opcional. Sem GEMINI_API_KEY, campanhas e convites usam textos prontos. A chave é grátis em aistudio.google.com."}
-        </Row>
-        <Row ok={s.cronSecret} title="Rotina diária">
-          {s.cronSecret ? "Protegida por CRON_SECRET. Roda todo dia às 14h: convites VIP, Pix vencido e mensalidades." : "Defina CRON_SECRET para proteger a rotina diária."}
-        </Row>
-        </>}
         <Row ok={s.venue} title="1. Sua casa">
-          {s.venue ? <>Cadastrada. Ajuste endereço, localização e mesas em <Link className="text-brandl underline" href="/admin/casa">Casa e mesas</Link>.</> : s.tables && s.root ? (
+          {s.venue ? <>Cadastrada. Ajuste endereço, localização e mesas em <Link className="text-brandl underline" href="/admin/casa">Casa e mesas</Link>.</> : s.tables && s.mode === "demo" ? (
             <div className="mt-2 grid gap-2 sm:grid-cols-3">
               <input className="input" placeholder="Nome da casa" value={venue.name} onChange={(e) => setVenue({ ...venue, name: e.target.value })} />
               <input className="input" placeholder="Cidade" value={venue.city} onChange={(e) => setVenue({ ...venue, city: e.target.value })} />
@@ -133,7 +112,7 @@ export default function SetupClient({ initial }: { initial: SetupStatus }) {
             {asaasForm}
           </>}
         </Row>
-        {s.mode !== "demo" && !s.root && s.venue && (
+        {s.mode !== "demo" && s.venue && (
           <Row ok title="Senha do painel">
             Portaria, bar e painel usam o mesmo login da casa.
             <div className="mt-3 grid gap-2 sm:grid-cols-3">
@@ -147,7 +126,6 @@ export default function SetupClient({ initial }: { initial: SetupStatus }) {
           Veja seu plano, quem paga a taxa do ingresso e a mensalidade em <Link className="text-brandl underline" href="/admin/plano">Plano</Link>.
         </Row>
       </ol>
-      {s.root && <Link className="btn-ghost inline-flex" href="/plataforma">Abrir a visão da plataforma (todas as casas)</Link>}
       {msg && <p role="status" className="rounded-xl bg-white/5 p-3 text-sm">{msg}</p>}
       {s.mode !== "demo" && <button className="text-sm text-mut underline" onClick={async () => { await fetch("/api/admin/login", { method: "DELETE" }); location.href = "/"; }}>Sair do painel</button>}
       {s.venue && <div className="flex flex-wrap gap-2"><Link className="btn" href="/admin/eventos/novo">Criar evento</Link><Link className="btn-ghost" href="/admin/cardapio">Montar cardápio</Link><Link className="btn-ghost" href="/admin/promoters">Cadastrar promoters</Link></div>}

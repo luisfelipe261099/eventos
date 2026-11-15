@@ -39,10 +39,10 @@ export default function Planos() {
           <p className="mt-5 max-w-2xl text-lg text-white/70">Ingressos, portaria, cardápio, comandas e promoters em um só sistema. Você paga uma mensalidade pequena e uma taxa por ingresso que é a metade da cobrada pelas ticketeiras, e o dinheiro vai para a sua chave Pix quando você quiser, sem esperar o evento acabar.</p>
           <div className="mt-7 flex flex-wrap gap-3">
             <Link href="/cadastro" className="btn-primary">Começar {TRIAL_DAYS} dias grátis</Link>
-            <Link href="/simular" className="inline-flex items-center rounded-full border border-white/25 px-5 py-3 text-[15px] font-medium hover:bg-white/10">Ver funcionando</Link>
+            <a href="#video" className="inline-flex items-center rounded-full border border-white/25 px-5 py-3 text-[15px] font-medium hover:bg-white/10">Ver o vídeo</a>
           </div>
           </div>
-          <figure className="mx-auto w-full max-w-[280px]">
+          <figure id="video" className="mx-auto w-full max-w-[280px] scroll-mt-24">
             <video className="aspect-[9/16] w-full rounded-[28px] bg-black ring-1 ring-white/15" controls playsInline preload="none" poster="/video/casa-cheia-capa.jpg" aria-label="Vídeo de apresentação do Casa Cheia, 40 segundos">
               <source src="/video/casa-cheia.mp4" type="video/mp4" />
             </video>
