@@ -99,3 +99,19 @@ export function unseal(sealed: string | null | undefined): string | null {
     return Buffer.concat([d.update(Buffer.from(body, "base64url")), d.final()]).toString("utf8");
   } catch { return null; }
 }
+
+/** Guarda das páginas da administração: cada página confere, não só o layout (o Next pode renderizar a página sem o layout). */
+export async function requireRoot() {
+  if (!(await isRoot())) {
+    const { redirect } = await import("next/navigation");
+    redirect("/entrar");
+  }
+}
+
+/** Guarda das páginas do painel da casa (mesmo motivo de requireRoot). */
+export async function requireAdmin() {
+  if (!(await isAdmin())) {
+    const { redirect } = await import("next/navigation");
+    redirect("/entrar");
+  }
+}

@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
 import type { Product } from "@/lib/types";
 import { getVenueOrNull } from "@/lib/repo";
@@ -9,6 +10,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Cardápio" };
 
 export default async function CardapioAdmin() {
+  await requireAdmin();
   const venue = await getVenueOrNull();
   const products = venue ? await db().select<Product>("products", { venue_id: venue.id }) : [];
   return (

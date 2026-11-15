@@ -1,3 +1,4 @@
+import { requireRoot } from "@/lib/admin-auth";
 import { platformData } from "@/lib/platform-data";
 import { ensurePlatformReady } from "@/lib/platform";
 import { brl } from "@/lib/format";
@@ -16,6 +17,7 @@ const dt = (iso: string) => new Date(iso).toLocaleString("pt-BR", { day: "2-digi
 
 /** Repasses às casas: saldo de cada uma, repasse na hora e histórico. */
 export default async function Repasses() {
+  await requireRoot();
   const [d, health] = await Promise.all([platformData(), ensurePlatformReady()]);
   const withBalance = d.rows.filter((r) => d.balances.has(r.venue.id));
   return (

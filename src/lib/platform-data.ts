@@ -1,11 +1,13 @@
 /** Números da área de administração (todas as casas). */
 import { db } from "./db";
+import { requireRoot } from "./admin-auth";
 import { platformOverview } from "./billing";
 import { balance } from "./payouts";
 import { platformCfg } from "./payments";
 import type { LedgerEntry, Payout, Venue } from "./types";
 
 export async function platformData() {
+  await requireRoot();
   const o = await platformOverview();
   const custody = Boolean(platformCfg());
   const balances = new Map<string, number>();

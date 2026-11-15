@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/admin-auth";
 import { setupStatus } from "@/lib/setup";
 import { Page, TopBar } from "@/components/ui";
 import AdminNav from "../AdminNav";
@@ -7,6 +8,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Configuração" };
 
 export default async function SetupPage() {
+  await requireAdmin();
   const s = await setupStatus();
   return (
     <Page wide>

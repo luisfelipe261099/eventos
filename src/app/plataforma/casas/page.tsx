@@ -1,3 +1,4 @@
+import { requireRoot } from "@/lib/admin-auth";
 import { platformData } from "@/lib/platform-data";
 import { brl } from "@/lib/format";
 import { Pill } from "@/components/ui";
@@ -10,6 +11,7 @@ export const metadata = { title: "Casas" };
 const STATUS = { trial: ["Grátis", "brand"], active: ["Em dia", "ok"], past_due: ["Atrasada", "warn"], blocked: ["Pausada", "bad"] } as const;
 
 export default async function Casas() {
+  await requireRoot();
   const d = await platformData();
   return (
     <>

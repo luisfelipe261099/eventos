@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/admin-auth";
 import { notFound } from "next/navigation";
 import { db, hasSupabaseStorage, postgresUrl } from "@/lib/db";
 import type { EventItem, TicketType } from "@/lib/types";
@@ -13,6 +14,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Evento" };
 
 export default async function EventEdit({ params }: { params: Promise<{ id: string }> }) {
+  await requireAdmin();
   const { id } = await params;
   const isNew = id === "novo";
   const ev: EventItem | null = isNew ? null : await ownedEvent(id);

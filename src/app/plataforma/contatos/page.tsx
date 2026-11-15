@@ -1,3 +1,4 @@
+import { requireRoot } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
 import type { Lead } from "@/lib/types";
 
@@ -6,6 +7,7 @@ export const metadata = { title: "Contatos" };
 
 /** Quem pediu contato pela página de planos. */
 export default async function Contatos() {
+  await requireRoot();
   const leads = (await db().select<Lead>("leads").catch(() => [] as Lead[])).sort((a, b) => b.created_at.localeCompare(a.created_at));
   return (
     <>

@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/admin-auth";
 import Link from "next/link";
 import Image from "next/image";
 import { db } from "@/lib/db";
@@ -11,6 +12,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Eventos" };
 
 export default async function EventosAdmin() {
+  await requireAdmin();
   const venue = await getVenueOrNull();
   const [events, types, checkins] = await Promise.all([venue ? listEvents(venue.id) : [], db().select<TicketType>("ticket_types"), db().select<Checkin>("checkins")]);
   const now = Date.now() - 8 * 36e5;

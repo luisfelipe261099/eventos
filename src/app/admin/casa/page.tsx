@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/admin-auth";
 import { getVenueOrNull } from "@/lib/repo";
 import { Page, TopBar } from "@/components/ui";
 import AdminNav from "../AdminNav";
@@ -7,6 +8,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Casa e mesas" };
 
 export default async function CasaAdmin() {
+  await requireAdmin();
   const v = await getVenueOrNull();
   return (
     <Page wide>

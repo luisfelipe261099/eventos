@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/admin-auth";
 import { financeReport } from "@/lib/finance";
 import { brl, fmtDate } from "@/lib/format";
 import { Page, Stat, TopBar } from "@/components/ui";
@@ -10,6 +11,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Financeiro" };
 
 export default async function Financeiro() {
+  await requireAdmin();
   const { rows, byPromoter } = await financeReport();
   const venue = await getVenueOrNull();
   const mode = venue ? await payMode(venue.id) : null;

@@ -1,3 +1,4 @@
+import { requireRoot } from "@/lib/admin-auth";
 import { ensurePlatformReady } from "@/lib/platform";
 import { setupStatus } from "@/lib/setup";
 import { platformWallet } from "@/lib/payments";
@@ -17,6 +18,7 @@ function Check({ ok, title, children }: { ok: boolean | null; title: string; chi
 
 /** Situação técnica. Tudo que o sistema consegue resolver sozinho, ele resolve; aqui só aparece o resultado. */
 export default async function Sistema() {
+  await requireRoot();
   const [h, s] = await Promise.all([ensurePlatformReady(true), setupStatus()]);
   const acc = h.account;
   return (

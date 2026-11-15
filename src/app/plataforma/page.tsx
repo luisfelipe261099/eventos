@@ -1,3 +1,4 @@
+import { requireRoot } from "@/lib/admin-auth";
 import Link from "next/link";
 import { platformData } from "@/lib/platform-data";
 import { ensurePlatformReady } from "@/lib/platform";
@@ -12,6 +13,7 @@ const KIND: Record<string, string> = { sale_ticket: "Ingresso", sale_tab: "Coman
 
 /** Visão geral da plataforma: o que entrou, o que é seu, o que falta repassar e o que pede atenção. */
 export default async function Overview() {
+  await requireRoot();
   const [d, health] = await Promise.all([platformData(), ensurePlatformReady()]);
   const month = new Date(`${d.month}-15`).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");

@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/admin-auth";
 import Link from "next/link";
 import { getVenueOrNull, venueFeeMode, venuePlan } from "@/lib/repo";
 import { currentMonth, monthFees, platformCfg, syncBilling, trialDaysLeft } from "@/lib/billing";
@@ -14,6 +15,7 @@ export const metadata = { title: "Plano" };
 const STATUS = { trial: ["Período grátis", "brand"], active: ["Em dia", "ok"], past_due: ["Mensalidade em atraso", "warn"], blocked: ["Vendas pausadas", "bad"] } as const;
 
 export default async function PlanoPage() {
+  await requireAdmin();
   const venue = await getVenueOrNull();
   if (!venue) return (
     <Page wide><TopBar title="Plano" back="/" /><AdminNav active="/admin/plano" />

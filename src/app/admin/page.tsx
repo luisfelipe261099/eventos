@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/admin-auth";
 import { currentEvent, liveStats } from "@/lib/repo";
 import { customerProfiles, demandForecast, productStats } from "@/lib/insights";
 import { isSupabaseConfigured } from "@/lib/db";
@@ -26,6 +27,7 @@ function Section({ id, kick, title, children }: { id: string; kick: string; titl
 }
 
 export default async function AdminPage() {
+  await requireAdmin();
   const ev = await currentEvent();
   if (!ev) return (
     <Page wide>
