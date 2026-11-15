@@ -164,6 +164,8 @@ export interface Invite {
   created_at: string;
 }
 
+export interface PlatformAdmin { id: ID; email: string; password_hash: string; created_at: string }
+
 export type PixKeyType = "CPF" | "CNPJ" | "EMAIL" | "PHONE" | "EVP";
 
 export interface LedgerEntry {

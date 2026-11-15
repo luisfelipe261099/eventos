@@ -24,7 +24,7 @@ export default function Login() {
       <button className="btn" disabled={busy || !pw} onClick={go}>{busy ? "Entrando…" : "Entrar"}</button>
       <p className="mt-2 text-sm text-mut">Ainda não usa a Casa Cheia? <Link className="text-brandl underline" href="/cadastro">Crie a conta da sua casa</Link>: 30 dias grátis.</p>
       <p className="text-xs text-mut">Esqueceu a senha? Peça uma nova para a Casa Cheia.</p>
-      <p className="text-xs text-mut">Equipe Casa Cheia: deixe o e-mail em branco e use a senha da plataforma.</p>
+      <p className="text-xs text-mut">Administrador da plataforma: entre com o seu e-mail e senha de administrador.</p>
     </main></div>
   );
 }

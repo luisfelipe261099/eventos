@@ -4,6 +4,7 @@ import { body } from "@/lib/http";
 import { COOKIE, sessionCookie, verifyPassword, type Session } from "@/lib/admin-auth";
 import { isSupabaseConfigured } from "@/lib/db";
 import { venueRawByEmail } from "@/lib/repo";
+import { adminLogin } from "@/lib/admins";
 import { attempts, clearAttempts, registerAttempt } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -26,8 +27,11 @@ export async function POST(req: Request) {
   let session: Session | null = null;
   if (typeof password === "string" && password) {
     if (email?.trim() && isSupabaseConfigured()) {
-      const v = await venueRawByEmail(email).catch(() => null);
-      if (v && verifyPassword(password, v.password_hash)) session = { venueId: v.id, root: false };
+      if (await adminLogin(email, password).catch(() => false)) session = { venueId: null, root: true }; // administrador da plataforma
+      else {
+        const v = await venueRawByEmail(email).catch(() => null);
+        if (v && verifyPassword(password, v.password_hash)) session = { venueId: v.id, root: false };
+      }
     } else {
       const pw = process.env.ADMIN_PASSWORD;
       if (pw && same(password, pw)) session = { venueId: null, root: true };

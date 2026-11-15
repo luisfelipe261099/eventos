@@ -8,6 +8,8 @@ import { DemoBanner, Page, Pill, Stat, TopBar } from "@/components/ui";
 import Login from "../admin/Login";
 import VenueActions from "./VenueActions";
 import HooksSetup from "./HooksSetup";
+import AdminsBox from "./AdminsBox";
+import { listAdmins } from "@/lib/admins";
 import { balance } from "@/lib/payouts";
 
 export const dynamic = "force-dynamic";
@@ -40,6 +42,7 @@ export default async function Plataforma() {
       </p>
 
       {platformCfg() && <HooksSetup />}
+      <AdminsBox admins={await listAdmins().catch(() => [])} />
 
       <h2 className="h-display mt-8 text-xl">Casas</h2>
       <div className="mt-3 overflow-x-auto rounded-2xl border border-line">

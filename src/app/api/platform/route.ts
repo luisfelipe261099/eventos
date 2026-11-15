@@ -5,6 +5,7 @@ import { hashPassword, isRoot, sessionCookie } from "@/lib/admin-auth";
 import { db, pg, postgresUrl } from "@/lib/db";
 import { getVenueById } from "@/lib/repo";
 import { PLANS } from "@/lib/plans";
+import { upsertAdmin } from "@/lib/admins";
 import { ensureWebhook, PaymentError, platformCfg, PLATFORM_HOOK, withdrawalToken } from "@/lib/payments";
 import type { EventItem, Ticket, Venue } from "@/lib/types";
 
@@ -13,7 +14,11 @@ const STATUS = ["trial", "active", "past_due", "blocked"] as const;
 /** Ações da Casa Cheia sobre uma casa: abrir o painel dela, trocar plano ou situação, estender o período grátis. */
 export const POST = handle(async (req: Request) => {
   if (!(await isRoot())) return fail("Não autorizado", 401);
-  const b = await body<{ venueId: string; action: "enter" | "plan" | "status" | "extend" | "reset_password" | "delete" | "setup_hooks"; plan?: string; status?: string; days?: number; email?: string }>(req);
+  const b = await body<{ venueId: string; action: "enter" | "plan" | "status" | "extend" | "reset_password" | "delete" | "setup_hooks" | "admin"; plan?: string; status?: string; days?: number; email?: string; password?: string }>(req);
+  if (b.action === "admin") {
+    try { await upsertAdmin(b.email ?? "", b.password ?? ""); } catch (e) { return fail(e instanceof Error ? e.message : "Falhou"); }
+    return ok({ ok: true });
+  }
   if (b.action === "setup_hooks") {
     // webhook da conta da plataforma (vendas das casas, mensalidades e repasses) + dados da validação de saque
     const cfg = platformCfg();
